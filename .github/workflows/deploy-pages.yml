@@ -23,6 +23,8 @@ jobs:
         run: cat src/EnglishLoop.part-*.txt > src/EnglishLoop.tsx
       - name: Add automatic homework generation demo
         run: python3 scripts/patch_demo.py
+      - name: Add tutor instructions to generation
+        run: python3 scripts/patch_tutor_instructions.py
       - uses: actions/setup-node@v4
         with:
           node-version: 22
