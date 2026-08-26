@@ -1,0 +1,271 @@
+style={{ background: "#fff", color: "var(--ink2)", border: "1px solid var(--line)" }}>{t}</span>)}
+              </div>
+            </div>
+          )}
+          <label style={{ maxWidth: 220 }}>
+            <div className="el-eyebrow" style={{ marginBottom: 6 }}>Примерное время</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="range" min="3" max="30" value={b.minutes} style={{ flex: 1, accentColor: "var(--accent)" }}
+                onChange={(e) => patch(b.key, { minutes: +e.target.value })} />
+              <span className="el-mono" style={{ fontSize: 13 }}>{b.minutes} min</span>
+            </div>
+          </label>
+          <div><button className="el-btn el-g" onClick={onToggle}>Готово</button></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AssignedDone({ hwId, hw, go, jumpToStudent }) {
+  const h = hw[hwId];
+  const s = STUDENTS.find((x) => x.id === h.student);
+  return (
+    <div className="el-pop" style={{ maxWidth: 520, margin: "8vh auto 0", textAlign: "center" }}>
+      <div style={{
+        width: 52, height: 52, borderRadius: 999, background: "var(--soft)", color: "var(--accent)",
+        display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 22px",
+      }}><Check size={24} strokeWidth={2.2} /></div>
+      <h1 className="el-serif" style={{ fontSize: 32, margin: "0 0 10px" }}>Homework assigned</h1>
+      <p style={{ color: "var(--ink2)", margin: "0 0 26px" }}>
+        {s.name} увидит {h.tasks.length} сфокусированных задания. Срок — {h.due}.
+      </p>
+      <div className="el-card" style={{ padding: 18, textAlign: "left" }}>
+        {h.tasks.map((t, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", fontSize: 14, color: "var(--ink2)" }}>
+            <span style={{ display: "flex", gap: 9, alignItems: "center" }}><TaskIcon name={t.icon} size={14} /> {t.title}</span>
+            <span className="el-mono">{t.minutes} min</span>
+          </div>
+        ))}
+        <div style={{ borderTop: "1px solid var(--line)", marginTop: 10, paddingTop: 10, display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+          <span>Estimated time</span>
+          <span className="el-mono" style={{ fontWeight: 600 }}>{h.tasks.reduce((a, b) => a + b.minutes, 0)} min</span>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
+        <button className="el-btn el-g" onClick={() => go("home")}>К дашборду</button>
+        <button className="el-btn el-p" onClick={jumpToStudent}>Посмотреть глазами ученика <ChevronRight size={15} /></button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------- Teacher: review ------------------------- */
+
+function Highlighted({ text, targets }) {
+  const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp("(" + targets.map(esc).join("|") + ")", "ig");
+  const parts = String(text).split(re);
+  return <>{parts.map((p, i) => targets.some((t) => norm(t) === norm(p))
+    ? <span key={i} className="el-tg">{p}</span> : <span key={i}>{p}</span>)}</>;
+}
+
+const WAVE = Array.from({ length: 58 }, (_, i) => 0.22 + 0.78 * Math.abs(Math.sin(i * 1.61) * Math.cos(i * 0.37) + 0.25 * Math.sin(i * 0.9)));
+
+function SpeakingReview({ sp, marks, setMarks }) {
+  const [playing, setPlaying] = useState(false);
+  const [pos, setPos] = useState(0);
+  const [draft, setDraft] = useState(null);
+  const [audioUrl, setAudioUrl] = useState(sp.audioUrl || null);
+  const [audioError, setAudioError] = useState("");
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (!sp.audioKey) return;
+    let localUrl = null;
+    let cancelled = false;
+    loadAudioBlob(sp.audioKey).then((blob) => {
+      if (cancelled || !blob) {
+        if (!sp.audioUrl) setAudioError("The local audio recording is unavailable on this device.");
+        return;
+      }
+      localUrl = URL.createObjectURL(blob);
+      setAudioUrl(localUrl);
+    }).catch(() => {
+      if (!sp.audioUrl) setAudioError("The local audio recording is unavailable on this device.");
+    });
+    return () => {
+      cancelled = true;
+      if (localUrl) URL.revokeObjectURL(localUrl);
+    };
+  }, [sp.audioKey, sp.audioUrl]);
+
+  useEffect(() => {
+    if (!playing || audioUrl) return;
+    const t = setInterval(() => setPos((p) => Math.min(1, p + 0.006)), 60);
+    return () => clearInterval(t);
+  }, [playing, audioUrl]);
+  useEffect(() => { if (pos >= 1 && playing) setPlaying(false); }, [pos, playing]);
+  const totalSec = sp.seconds || 124;
+  const at = (f) => mmss(Math.round(f * totalSec));
+  const togglePlayback = async () => {
+    if (!audioUrl || !audioRef.current) {
+      if (pos >= 1) setPos(0);
+      setPlaying(!playing);
+      return;
+    }
+    if (audioRef.current.paused) await audioRef.current.play();
+    else audioRef.current.pause();
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 18 }}>
+      <div className="el-card" style={{ padding: 18 }}>
+        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          <button className="el-btn el-p" style={{ width: 44, height: 44, borderRadius: 999, padding: 0 }}
+            onClick={togglePlayback} disabled={!!audioError}>
+            {playing ? <Pause size={17} fill="#fff" /> : <Play size={17} fill="#fff" style={{ marginLeft: 2 }} />}
+          </button>
+          {audioUrl && <audio ref={audioRef} src={audioUrl} preload="metadata" playsInline
+            onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => { setPlaying(false); setPos(1); }}
+            onTimeUpdate={(e) => {
+              const el = e.currentTarget;
+              if (Number.isFinite(el.duration) && el.duration > 0) setPos(el.currentTime / el.duration);
+            }} />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 42, cursor: "crosshair" }}
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+                if (audioRef.current && Number.isFinite(audioRef.current.duration)) audioRef.current.currentTime = f * audioRef.current.duration;
+                setPos(f);
+                setDraft({ at: f, text: "" });
+              }}>
+              {WAVE.map((h, i) => {
+                const f = i / WAVE.length;
+                return <span key={i} style={{
+                  flex: 1, height: `${h * 100}%`, borderRadius: 2,
+                  background: f <= pos ? "var(--accent)" : "#DFD9CD", transition: "background .1s",
+                }} />;
+              })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 7 }}>
+              <span className="el-mono" style={{ fontSize: 12, color: "var(--ink3)" }}>{at(pos)}</span>
+              <span className="el-mono" style={{ fontSize: 12, color: "var(--ink3)" }}>{sp.duration}</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ fontSize: 12.5, color: audioError ? "#9A4B3C" : "var(--ink3)", marginTop: 10 }}>
+          {audioError || (audioUrl ? "Реальная запись ученика. Клик по дорожке — поставить пометку в конкретном месте." : "Демо-запись. Клик по дорожке — поставить пометку в конкретном месте.")}
+        </div>
+      </div>
+
+      {(marks.length > 0 || draft) && (
+        <div style={{ display: "grid", gap: 8 }}>
+          {marks.map((m, i) => (
+            <div key={i} className="el-card" style={{ padding: "12px 14px", display: "flex", gap: 12, alignItems: "flex-start", background: "var(--amber-s)", borderColor: "#EDDCC0" }}>
+              <span className="el-mono" style={{ fontSize: 12, color: "var(--amber)", fontWeight: 600, marginTop: 2 }}>{at(m.at)}</span>
+              <span style={{ flex: 1, fontSize: 13.5 }}>{m.text}</span>
+              <button className="el-btn el-q" onClick={() => setMarks(marks.filter((_, j) => j !== i))}><X size={14} /></button>
+            </div>
+          ))}
+          {draft && (
+            <div className="el-card el-fadein" style={{ padding: 14 }}>
+              <div className="el-eyebrow">Пометка на {at(draft.at)}</div>
+              <textarea className="el-ta" rows={2} autoFocus placeholder="Что обсудить здесь на занятии…" style={{ marginTop: 8 }}
+                value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} />
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button className="el-btn el-p" disabled={!draft.text.trim()}
+                  onClick={() => { setMarks([...marks, draft].sort((a, b) => a.at - b.at)); setDraft(null); }}>Сохранить</button>
+                <button className="el-btn el-q" onClick={() => setDraft(null)}>Отмена</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="el-card" style={{ padding: 18 }}>
+        <div className="el-eyebrow">Target language</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+          {SPEAK_TARGETS.map((t) => {
+            const on = (sp.used || []).includes(t);
+            return (
+              <span key={t} className="el-pill" style={{ background: on ? "var(--soft)" : "var(--sunk)", color: on ? "var(--accent)" : "var(--ink3)" }}>
+                {on ? <Check size={13} strokeWidth={2.6} /> : <Circle size={11} />}{t}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="el-card" style={{ padding: 18 }}>
+        <div className="el-eyebrow">Transcript</div>
+        {sp.transcript ? (
+          <p className="el-serif" style={{ fontSize: 17, lineHeight: 1.62, marginTop: 12, marginBottom: 0, color: "var(--ink)" }}>
+            <Highlighted text={sp.transcript} targets={SPEAK_TARGETS.concat(["kept going"])} />
+          </p>
+        ) : (
+          <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: "10px 0 0", color: "var(--ink2)" }}>
+            Automatic transcription is not enabled in this local prototype. Listen to the recording and leave feedback directly.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WritingReview({ wr, notes, setNotes }) {
+  const [open, setOpen] = useState(null);
+  const custom = wr.text !== SAMPLE_ESSAY;
+  return (
+    <div style={{ display: "grid", gap: 18 }}>
+      <div className="el-card" style={{ padding: "14px 18px", display: "flex", gap: 24, flexWrap: "wrap" }}>
+        <div><div className="el-eyebrow">Слов</div><div className="el-mono" style={{ fontSize: 15, marginTop: 3 }}>{wr.words}</div></div>
+        <div><div className="el-eyebrow">Target expressions</div><div className="el-mono" style={{ fontSize: 15, marginTop: 3 }}>{wr.used.length} из 6</div></div>
+        <div><div className="el-eyebrow">Third Conditional</div><div className="el-mono" style={{ fontSize: 15, marginTop: 3 }}>{/had known|had looked|would have/i.test(wr.text) ? "есть" : "нет"}</div></div>
+      </div>
+
+      <div className="el-card" style={{ padding: 22 }}>
+        <div className="el-eyebrow" style={{ marginBottom: 12 }}>Работа ученика</div>
+        <p className="el-serif" style={{ fontSize: 17.5, lineHeight: 1.68, margin: 0 }}>
+          {custom
+            ? <Highlighted text={wr.text} targets={WRITE_TARGETS} />
+            : ESSAY_PARTS.map((p, i) => {
+              if (p.tag === "target") return <span key={i} className="el-tg">{p.t}</span>;
+              if (p.tag === "fix" || p.tag === "good") {
+                const on = notes.includes(p.id);
+                return (
+                  <span key={i} className={p.tag === "fix" ? "el-mark" : "el-mark-good"}
+                    onClick={() => setOpen(open === p.id ? null : p.id)}
+                    style={on ? { boxShadow: "0 0 0 2px rgba(143,99,32,.18)" } : undefined}>{p.t}</span>
+                );
+              }
+              return <span key={i}>{p.t}</span>;
+            })}
+        </p>
+        {custom && <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 14 }}>Это текст, который вы только что написали в режиме ученика.</div>}
+        {!custom && <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 14 }}>Кликните по подсвеченному месту, чтобы приложить комментарий. Редактора документа здесь нет — только две-три пометки.</div>}
+      </div>
+
+      {open && (() => {
+        const p = ESSAY_PARTS.find((x) => x.id === open);
+        const on = notes.includes(open);
+        return (
+          <div className="el-card el-fadein" style={{ padding: 16 }}>
+            <div className="el-eyebrow">{p.tag === "fix" ? "Что поправить" : "Что получилось"}</div>
+            <div className="el-serif" style={{ fontSize: 15.5, margin: "8px 0 6px", color: "var(--ink2)" }}>«{p.t.slice(0, 70)}{p.t.length > 70 ? "…" : ""}»</div>
+            <div style={{ fontSize: 14 }}>{p.note}</div>
+            <button className="el-btn el-p" style={{ marginTop: 12 }}
+              onClick={() => setNotes(on ? notes.filter((n) => n !== open) : [...notes, open])}>
+              {on ? <><Check size={14} /> В обратной связи</> : "Добавить в обратную связь"}
+            </button>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function ReviewScreen({ hwId, hw, setHw, go, notify }) {
+  const h = hw[hwId];
+  const s = STUDENTS.find((x) => x.id === h.student);
+  const narrow = useNarrow(1000);
+  const sub = h.submission || {};
+  const tabs = [
+    sub.recall && { k: "recall", l: "Recall", i: "Languages" },
+    sub.speaking && { k: "speaking", l: "Speaking", i: "Mic" },
+    sub.writing && { k: "writing", l: "Writing", i: "PenLine" },
+    sub.grammar && { k: "grammar", l: "Grammar", i: "Target" },
+  ].filter(Boolean);
+  const [tab, setTab] = useState(tabs[0]?.k);
+  const [marks, setMarks] = useState([{ at: 0.26, text: "Речь встала на шесть секунд — на занятии п
