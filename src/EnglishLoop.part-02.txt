@@ -1,0 +1,322 @@
+    goals: [GOALS[0], GOALS[1], GOALS[2]],
+    tasks: [
+      { ...LIBRARY[0], minutes: 7 }, { ...LIBRARY[1], minutes: 8 },
+      { ...LIBRARY[2], minutes: 15 }, { ...LIBRARY[3], minutes: 7 },
+    ],
+    submission: {
+      recall: { confident: 6, retry: 2, retryItems: ["look into", "carry out"] },
+      speaking: { duration: "2:04", seconds: 124, transcript: MOCK_TRANSCRIPT, used: ["eventually", "in advance", "keep going", "despite"] },
+      writing: { words: 142, text: SAMPLE_ESSAY, used: ["in advance", "look into", "carry out"] },
+      grammar: { correct: 4, total: 5, missed: ["Passive Voice"] },
+    },
+    feedback: null,
+  },
+  "hw-ahav-thu": {
+    id: "hw-ahav-thu", student: "ahav", title: "Thursday practice", status: "assigned",
+    due: "Среда, 20:00", nextLesson: "Четверг",
+    goals: [GOALS[0], GOALS[1], GOALS[2]],
+    tasks: [
+      { ...LIBRARY[0], minutes: 7 }, { ...LIBRARY[1], minutes: 8 },
+      { ...LIBRARY[2], minutes: 15 }, { ...LIBRARY[3], minutes: 7 },
+    ],
+    submission: {}, feedback: null,
+  },
+  "hw-alex": {
+    id: "hw-alex", student: "alex", title: "IELTS practice", status: "needs_review",
+    due: "Вчера, 21:00", submittedLabel: "вчера", totalTime: 41,
+    goals: ["Structure a Task 2 argument", "Reduce repetition in linking"],
+    tasks: [{ ...LIBRARY[2], title: "IELTS Writing Task 2", subtitle: "Task 2 · 250+ words", minutes: 40 }],
+    submission: { writing: { words: 247, text: SAMPLE_ESSAY, used: ["in advance", "eventually"] } },
+    feedback: null,
+  },
+  "hw-michael": {
+    id: "hw-michael", student: "michael", title: "GMAT Critical Reasoning", status: "in_progress",
+    due: "Завтра, 09:00", progressLabel: "8 of 12 questions completed",
+    goals: ["Spot assumption gaps faster"],
+    tasks: [{ ...LIBRARY[3], title: "GMAT Critical Reasoning", subtitle: "12 questions · assumptions", minutes: 25 }],
+    submission: { grammar: { correct: 6, total: 8, missed: ["Assumption"] } }, feedback: null,
+  },
+  "hw-nina": {
+    id: "hw-nina", student: "nina", title: "TOEFL speaking warm-up", status: "overdue",
+    due: "Понедельник, 20:00",
+    goals: ["Speak 45 seconds without pauses"],
+    tasks: [{ ...LIBRARY[1], minutes: 12 }],
+    submission: {}, feedback: null,
+  },
+});
+
+const PROGRESS = {
+  automatic: [
+    { t: "as soon as", note: "Стабильно в речи и письме с 4 марта" },
+    { t: "keep going", note: "Автоматически после трёх Speaking-заданий" },
+    { t: "in advance", note: "Без подсказок в последних двух работах" },
+  ],
+  stronger: [
+    { t: "eventually", note: "Перешло сюда после двух успешных Speaking-заданий" },
+    { t: "Third Conditional", note: "Появилось само в Writing 18 марта" },
+    { t: "speaking continuously", note: "2:04 без чтения текста" },
+  ],
+  practice: [
+    { t: "look into", note: "Не всплыло в последнем Speaking" },
+    { t: "carry out", note: "Пока только с подсказкой в списке" },
+    { t: "articles", note: "Две правки в последнем Writing" },
+    { t: "spontaneous speaking", note: "Речь рвётся без плана" },
+  ],
+};
+
+const CORE_SKILLS = [
+  { s: "Vocabulary", v: 2 }, { s: "Grammar", v: 2 }, { s: "Reading", v: 3 },
+  { s: "Writing", v: 2 }, { s: "Listening", v: 3 }, { s: "Speaking", v: 1 },
+];
+const SKILL_STATE = ["Needs practice", "Getting stronger", "Automatic"];
+
+/* ------------------------------ helpers ------------------------------ */
+
+const norm = (s) => s.toLowerCase().replace(/[.,!?;:'"«»]/g, "").replace(/\s+/g, " ").trim();
+const countWords = (s) => (s.trim() ? s.trim().split(/\s+/).length : 0);
+const mmss = (n) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
+const usedTargets = (text, list) => list.filter((t) => norm(text).includes(norm(t)));
+
+const STORAGE_KEY = "english-loop-homework-v3";
+const AUDIO_DB = "english-loop-audio";
+const AUDIO_STORE = "recordings";
+
+function loadHomework() {
+  if (typeof window === "undefined") return initialHomework();
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : initialHomework();
+  } catch {
+    return initialHomework();
+  }
+}
+
+function openAudioDb() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) return reject(new Error("IndexedDB is unavailable"));
+    const request = indexedDB.open(AUDIO_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(AUDIO_STORE)) db.createObjectStore(AUDIO_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Could not open local audio storage"));
+  });
+}
+
+async function saveAudioBlob(key, blob) {
+  const db = await openAudioDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(AUDIO_STORE, "readwrite");
+    tx.objectStore(AUDIO_STORE).put(blob, key);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error || new Error("Could not save audio"));
+  });
+  db.close();
+}
+
+async function loadAudioBlob(key) {
+  const db = await openAudioDb();
+  const blob = await new Promise((resolve, reject) => {
+    const request = db.transaction(AUDIO_STORE, "readonly").objectStore(AUDIO_STORE).get(key);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error || new Error("Could not load audio"));
+  });
+  db.close();
+  return blob;
+}
+
+async function clearAudioBlobs() {
+  try {
+    const db = await openAudioDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      tx.objectStore(AUDIO_STORE).clear();
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch {
+    // Audio storage is optional; reset the rest of the demo regardless.
+  }
+}
+
+function speakingMimeType() {
+  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
+  return ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find((t) => MediaRecorder.isTypeSupported(t)) || "";
+}
+
+function useNarrow(bp = 940) {
+  const [n, setN] = useState(typeof window !== "undefined" ? window.innerWidth < bp : false);
+  useEffect(() => {
+    const f = () => setN(window.innerWidth < bp);
+    window.addEventListener("resize", f);
+    return () => window.removeEventListener("resize", f);
+  }, [bp]);
+  return n;
+}
+
+const ICONS = { Languages, Mic, PenLine, Target };
+const TaskIcon = ({ name, size = 16, ...p }) => {
+  const C = ICONS[name] || Target;
+  return <C size={size} {...p} />;
+};
+
+function Pill({ status, children }) {
+  const s = STATUS[status] || { label: children, fg: "#5B584F", bg: "#F1EFE9" };
+  return <span className="el-pill" style={{ background: s.bg, color: s.fg }}>{s.label}</span>;
+}
+
+function Toast({ show, children }) {
+  if (!show) return null;
+  return (
+    <div className="el-pop" style={{
+      position: "fixed", bottom: 26, left: "50%", transform: "translateX(-50%)", zIndex: 90,
+      background: "#1B1A17", color: "#fff", padding: "11px 18px", borderRadius: 12,
+      fontSize: 14, fontWeight: 500, boxShadow: "0 20px 40px -20px rgba(0,0,0,.6)", display: "flex", gap: 9, alignItems: "center",
+    }}>
+      <Check size={15} strokeWidth={2.4} /> {children}
+    </div>
+  );
+}
+
+/* Signature element: the loop rail. Shows where the teacher is in the cycle. */
+function LoopRail({ stage }) {
+  const steps = [
+    { k: "assign", l: "Assign" }, { k: "practise", l: "Practise" },
+    { k: "review", l: "Review" }, { k: "lesson", l: "Next lesson" },
+  ];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      {steps.map((s, i) => {
+        const on = s.k === stage;
+        return (
+          <React.Fragment key={s.k}>
+            <span className="el-mono" style={{
+              fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase",
+              color: on ? "var(--accent)" : "var(--ink3)", fontWeight: on ? 600 : 500,
+              borderBottom: on ? "1.5px solid var(--accent)" : "1.5px solid transparent", paddingBottom: 2,
+            }}>{s.l}</span>
+            {i < 3 && <span style={{ width: 14, height: 1, background: "var(--line2)" }} />}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ================================================================== *
+ *  TEACHER — desktop-first workspace
+ * ================================================================== */
+
+function hwMeta(h) {
+  const s = h.submission || {};
+  if (h.status === "needs_review") {
+    const bits = [];
+    if (s.speaking) bits.push(`${s.speaking.duration} recording`);
+    if (s.writing) bits.push(`${s.writing.words} words`);
+    if (s.recall) bits.push(`${s.recall.confident} of ${s.recall.confident + s.recall.retry} recalled`);
+    return { line: `Выполнено ${h.submittedLabel || "только что"}`, extra: bits.join(" · ") };
+  }
+  if (h.status === "in_progress") return { line: h.progressLabel || "Начал выполнять", extra: "" };
+  if (h.status === "overdue") return { line: `Срок вышел: ${h.due}`, extra: "" };
+  if (h.status === "feedback_sent") return { line: "Обратная связь отправлена", extra: "" };
+  const t = h.tasks.reduce((a, x) => a + x.minutes, 0);
+  return { line: `${h.tasks.length} tasks · ${t} min`, extra: `Due ${h.due}` };
+}
+
+function Avatar({ name, size = 36 }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 999, flexShrink: 0, background: "var(--soft)",
+      color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+      fontWeight: 600, fontSize: size * 0.38, border: "1px solid #DCE7E2",
+    }}>{name[0]}</div>
+  );
+}
+
+function TeacherApp({ hw, setHw, notify, jumpToStudent }) {
+  const [view, setView] = useState({ name: "home" });
+  const narrow = useNarrow();
+  const go = (name, id) => { setView({ name, id }); window.scrollTo?.(0, 0); };
+
+  const NAV = [
+    { k: "home", l: "Home", i: Home }, { k: "students", l: "Students", i: Users },
+    { k: "homework", l: "Homework", i: ClipboardList }, { k: "materials", l: "Materials", i: BookOpen },
+    { k: "settings", l: "Settings", i: Settings },
+  ];
+  const activeNav = ["student", "create"].includes(view.name) ? "students"
+    : ["review", "results", "assigned"].includes(view.name) ? "homework" : view.name;
+
+  const Sidebar = (
+    <aside style={{
+      width: 232, flexShrink: 0, borderRight: "1px solid var(--line)", padding: "22px 14px",
+      display: "flex", flexDirection: "column", gap: 4, position: "sticky", top: 0, height: "100vh", background: "var(--bg)",
+    }}>
+      <div style={{ padding: "0 8px 20px" }}>
+        <div className="el-serif" style={{ fontSize: 19 }}>English Loop</div>
+        <div className="el-mono" style={{ fontSize: 10.5, color: "var(--ink3)", letterSpacing: ".1em", marginTop: 3 }}>CONCEPT B · PRACTICE LOOP</div>
+      </div>
+      {NAV.map((n) => (
+        <button key={n.k} className={`el-nav ${activeNav === n.k ? "el-nav-on" : ""}`} onClick={() => go(n.k)}>
+          <n.i size={16} strokeWidth={1.9} /> {n.l}
+        </button>
+      ))}
+      <div style={{ marginTop: "auto", borderTop: "1px solid var(--line)", paddingTop: 14, display: "flex", gap: 10, alignItems: "center" }}>
+        <Avatar name="Мария" size={32} />
+        <div style={{ lineHeight: 1.3 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 550 }}>Мария К.</div>
+          <div style={{ fontSize: 12, color: "var(--ink3)" }}>Частный преподаватель</div>
+        </div>
+      </div>
+    </aside>
+  );
+
+  const MobileNav = (
+    <nav style={{
+      position: "sticky", bottom: 0, display: "flex", background: "rgba(250,249,246,.94)",
+      backdropFilter: "blur(10px)", borderTop: "1px solid var(--line)", padding: "6px 4px calc(8px + env(safe-area-inset-bottom))", zIndex: 30,
+    }}>
+      {NAV.map((n) => (
+        <button key={n.k} onClick={() => go(n.k)} style={{
+          flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "6px 0",
+          color: activeNav === n.k ? "var(--accent)" : "var(--ink3)", fontSize: 10.5, fontWeight: 550,
+        }}><n.i size={18} strokeWidth={1.9} />{n.l}</button>
+      ))}
+    </nav>
+  );
+
+  let body = null;
+  if (view.name === "home") body = <TeacherHome hw={hw} go={go} />;
+  else if (view.name === "students") body = <TeacherStudents hw={hw} go={go} />;
+  else if (view.name === "student") body = <StudentProfile id={view.id} hw={hw} go={go} />;
+  else if (view.name === "create") body = <CreateHomework studentId={view.id} setHw={setHw} go={go} notify={notify} />;
+  else if (view.name === "assigned") body = <AssignedDone hwId={view.id} hw={hw} go={go} jumpToStudent={jumpToStudent} />;
+  else if (view.name === "review") body = <ReviewScreen hwId={view.id} hw={hw} setHw={setHw} go={go} notify={notify} />;
+  else if (view.name === "results") body = <ResultsScreen hwId={view.id} hw={hw} go={go} notify={notify} />;
+  else if (view.name === "homework") body = <HomeworkList hw={hw} go={go} />;
+  else body = <Placeholder name={view.name} go={go} />;
+
+  return (
+    <div style={{ display: "flex", minHeight: "100vh", flexDirection: narrow ? "column" : "row" }}>
+      {!narrow && Sidebar}
+      <main className="el-scroll" style={{ flex: 1, minWidth: 0 }}>
+        <div key={view.name + (view.id || "")} className="el-fade" style={{ padding: narrow ? "20px 16px 30px" : "34px 40px 60px", maxWidth: 1080, margin: "0 auto" }}>
+          {narrow && view.name === "home" && (
+            <div className="el-serif" style={{ fontSize: 17, marginBottom: 14 }}>English Loop</div>
+          )}
+          {body}
+        </div>
+      </main>
+      {narrow && MobileNav}
+    </div>
+  );
+}
+
+/* ------------------------- Teacher: dashboard ------------------------- */
+
+function TeacherHome({ hw, go }) {
+  const list = Object.values(hw);
+  const need = list.filter((h) => h.status === "needs_review");
+  const soon = list.filter((h) => ["assigned", "in_progress"].includes(h.status));
+  const late = list.fi
