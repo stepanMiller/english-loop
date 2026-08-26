@@ -1,0 +1,268 @@
+lter((h) => h.status === "overdue");
+  const done = list.filter((h) => h.status === "feedback_sent");
+  const stats = [
+    { n: need.length, l: "Needs review", c: "var(--amber)" },
+    { n: soon.length, l: "In progress", c: "var(--ink)" },
+    { n: late.length, l: "Overdue", c: "#9A4B3C" },
+    { n: done.length, l: "Feedback sent", c: "var(--accent)" },
+  ];
+
+  const Row = ({ h }) => {
+    const st = STUDENTS.find((s) => s.id === h.student);
+    const m = hwMeta(h);
+    const task = h.submission?.speaking ? "Speaking response" : h.tasks[0]?.title || h.title;
+    return (
+      <div className="el-card el-lift" style={{ padding: 16, display: "flex", gap: 14, alignItems: "center" }}>
+        <Avatar name={st.name} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 570, fontSize: 15 }}>{st.name}</span>
+            <Pill status={h.status} />
+          </div>
+          <div style={{ color: "var(--ink2)", fontSize: 13.5, marginTop: 3 }}>{task}</div>
+          <div className="el-mono" style={{ color: "var(--ink3)", fontSize: 12, marginTop: 4 }}>
+            {m.line}{m.extra ? ` · ${m.extra}` : ""}
+          </div>
+        </div>
+        {h.status === "needs_review" ? (
+          <button className="el-btn el-p" onClick={() => go("review", h.id)}>Review</button>
+        ) : h.status === "feedback_sent" ? (
+          <button className="el-btn el-g" onClick={() => go("results", h.id)}>Results</button>
+        ) : (
+          <button className="el-btn el-g" onClick={() => go("student", h.student)}>Open student</button>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 20, flexWrap: "wrap" }}>
+        <div>
+          <LoopRail stage={need.length ? "review" : "assign"} />
+          <h1 className="el-serif" style={{ fontSize: 38, margin: "14px 0 6px" }}>Homework overview</h1>
+          <p style={{ color: "var(--ink2)", margin: 0, fontSize: 15 }}>
+            {need.length ? `${need.length} работы ждут проверки. Ближайшее занятие — четверг, 19:00.` : "Всё проверено. Ближайшее занятие — четверг, 19:00."}
+          </p>
+        </div>
+        <button className="el-btn el-p" style={{ padding: "12px 20px" }} onClick={() => go("create", "ahav")}>
+          <Plus size={16} strokeWidth={2.2} /> Create homework
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, margin: "26px 0 32px" }}>
+        {stats.map((s) => (
+          <div key={s.l} className="el-card" style={{ padding: "16px 18px" }}>
+            <div className="el-mono el-serif" style={{ fontSize: 30, color: s.c, lineHeight: 1 }}>{s.n}</div>
+            <div className="el-eyebrow" style={{ marginTop: 8 }}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+
+      <Section title="Needs review" count={need.length} hint="Проверьте до подготовки следующего занятия">
+        {need.length ? need.map((h) => <Row key={h.id} h={h} />) :
+          <Empty text="Пусто. Как только ученик отправит работу, она появится здесь." />}
+      </Section>
+
+      <Section title="Due soon" count={soon.length}>
+        {soon.length ? soon.map((h) => <Row key={h.id} h={h} />) : <Empty text="Нет активных заданий. Назначьте практику." />}
+      </Section>
+
+      {late.length > 0 && <Section title="Not started" count={late.length}>{late.map((h) => <Row key={h.id} h={h} />)}</Section>}
+      {done.length > 0 && <Section title="Feedback sent" count={done.length}>{done.map((h) => <Row key={h.id} h={h} />)}</Section>}
+    </>
+  );
+}
+
+function Section({ title, count, hint, children }) {
+  return (
+    <section style={{ marginBottom: 32 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
+        <h2 style={{ fontSize: 15.5, fontWeight: 600, margin: 0 }}>{title}</h2>
+        {count !== undefined && <span className="el-mono" style={{ fontSize: 13, color: "var(--ink3)" }}>{count}</span>}
+        {hint && <span style={{ fontSize: 12.5, color: "var(--ink3)", marginLeft: "auto" }}>{hint}</span>}
+      </div>
+      <div style={{ display: "grid", gap: 10 }}>{children}</div>
+    </section>
+  );
+}
+
+function Empty({ text }) {
+  return <div className="el-card" style={{ padding: 20, color: "var(--ink3)", fontSize: 14, borderStyle: "dashed" }}>{text}</div>;
+}
+
+/* ------------------------- Teacher: students ------------------------- */
+
+function TeacherStudents({ hw, go }) {
+  return (
+    <>
+      <h1 className="el-serif" style={{ fontSize: 32, margin: "0 0 6px" }}>Students</h1>
+      <p style={{ color: "var(--ink2)", marginTop: 0, marginBottom: 24 }}>Четыре ученика. Один профиль навыков, несколько направлений.</p>
+      <div style={{ display: "grid", gap: 10 }}>
+        {STUDENTS.map((s) => {
+          const active = Object.values(hw).filter((h) => h.student === s.id);
+          const need = active.filter((h) => h.status === "needs_review").length;
+          return (
+            <button key={s.id} className="el-card el-lift" onClick={() => go("student", s.id)}
+              style={{ padding: 16, display: "flex", gap: 14, alignItems: "center", textAlign: "left" }}>
+              <Avatar name={s.name} size={40} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 570 }}>{s.name}</div>
+                <div style={{ fontSize: 13, color: "var(--ink2)", marginTop: 2 }}>{s.tracks.join(" · ")} · {s.level}</div>
+              </div>
+              {need > 0 && <span className="el-pill" style={{ background: "var(--amber-s)", color: "var(--amber)" }}>{need} to review</span>}
+              <span className="el-mono" style={{ fontSize: 12, color: "var(--ink3)" }}>{s.nextLesson}</span>
+              <ChevronRight size={17} color="var(--ink3)" />
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function StudentProfile({ id, hw, go }) {
+  const s = STUDENTS.find((x) => x.id === id);
+  const mine = Object.values(hw).filter((h) => h.student === id);
+  const weak = ["look into", "carry out"];
+  return (
+    <>
+      <button className="el-btn el-q" style={{ marginLeft: -10, marginBottom: 12 }} onClick={() => go("students")}>
+        <ArrowLeft size={15} /> Students
+      </button>
+      <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+        <Avatar name={s.name} size={56} />
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <h1 className="el-serif" style={{ fontSize: 34, margin: 0 }}>{s.name}</h1>
+          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {s.tracks.map((t) => <span key={t} className="el-pill" style={{ background: "var(--sunk)", color: "var(--ink2)" }}>{t}</span>)}
+            <span className="el-mono" style={{ fontSize: 12.5, color: "var(--ink3)" }}>{s.level} · с {s.since}</span>
+          </div>
+        </div>
+        <button className="el-btn el-p" style={{ padding: "12px 20px" }} onClick={() => go("create", s.id)}>
+          <Plus size={16} strokeWidth={2.2} /> Create homework
+        </button>
+      </div>
+
+      <div className="el-card" style={{ padding: "14px 18px", margin: "22px 0", display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center" }}>
+        <div><div className="el-eyebrow">Следующее занятие</div><div className="el-mono" style={{ marginTop: 4, fontSize: 14 }}>{s.nextLesson}</div></div>
+        <div><div className="el-eyebrow">Практика за 30 дней</div><div className="el-mono" style={{ marginTop: 4, fontSize: 14 }}>6 работ · 3 ч 12 мин</div></div>
+        <div><div className="el-eyebrow">Активных выражений</div><div className="el-mono" style={{ marginTop: 4, fontSize: 14 }}>{EXPRESSIONS.length}</div></div>
+      </div>
+
+      <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))" }}>
+        <div className="el-card" style={{ padding: 20 }}>
+          <div className="el-eyebrow">English Core</div>
+          <div style={{ marginTop: 14, display: "grid", gap: 12 }}>
+            {CORE_SKILLS.map((k) => (
+              <div key={k.s} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ width: 88, fontSize: 14 }}>{k.s}</span>
+                <div style={{ display: "flex", gap: 4, flex: 1 }}>
+                  {[1, 2, 3].map((i) => (
+                    <span key={i} style={{
+                      flex: 1, height: 4, borderRadius: 99,
+                      background: i <= k.v ? (k.v === 1 ? "var(--amber)" : "var(--accent)") : "var(--line)",
+                    }} />
+                  ))}
+                </div>
+                <span style={{ fontSize: 12, color: "var(--ink3)", width: 108, textAlign: "right" }}>{SKILL_STATE[k.v - 1]}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ borderTop: "1px solid var(--line)", marginTop: 18, paddingTop: 14 }}>
+            <div className="el-eyebrow">Exam track · IELTS</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink2)", marginTop: 6 }}>
+              Writing Task 2 — структура аргумента ещё разваливается к третьему абзацу. Speaking Part 2 — держит минуту.
+            </div>
+          </div>
+        </div>
+
+        <div className="el-card" style={{ padding: 20 }}>
+          <div className="el-eyebrow">Активные выражения</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 12 }}>
+            {EXPRESSIONS.map((e) => (
+              <span key={e} className="el-pill" style={{
+                background: weak.includes(e) ? "var(--amber-s)" : "var(--sunk)",
+                color: weak.includes(e) ? "var(--amber)" : "var(--ink2)", fontWeight: 500,
+              }}>{e}</span>
+            ))}
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 12 }}>Подсвечены те, что пока не всплывают без подсказки.</div>
+        </div>
+      </div>
+
+      <Section title="Homework" count={mine.length}>
+        {mine.map((h) => {
+          const m = hwMeta(h);
+          return (
+            <div key={h.id} className="el-card el-lift" style={{ padding: 15, display: "flex", gap: 14, alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontWeight: 550, fontSize: 14.5 }}>{h.title}</span><Pill status={h.status} />
+                </div>
+                <div className="el-mono" style={{ fontSize: 12, color: "var(--ink3)", marginTop: 4 }}>{m.line}{m.extra ? ` · ${m.extra}` : ""}</div>
+              </div>
+              {h.status === "needs_review" && <button className="el-btn el-p" onClick={() => go("review", h.id)}>Review</button>}
+              {h.status === "feedback_sent" && <button className="el-btn el-g" onClick={() => go("results", h.id)}>Results</button>}
+            </div>
+          );
+        })}
+      </Section>
+    </>
+  );
+}
+
+function HomeworkList({ hw, go }) {
+  const list = Object.values(hw);
+  return (
+    <>
+      <h1 className="el-serif" style={{ fontSize: 32, margin: "0 0 20px" }}>Homework</h1>
+      <div style={{ display: "grid", gap: 10 }}>
+        {list.map((h) => {
+          const st = STUDENTS.find((s) => s.id === h.student);
+          const m = hwMeta(h);
+          return (
+            <div key={h.id} className="el-card el-lift" style={{ padding: 15, display: "flex", gap: 14, alignItems: "center" }}>
+              <Avatar name={st.name} size={34} />
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 550, fontSize: 14.5 }}>{st.name} · {h.title}</span><Pill status={h.status} />
+                </div>
+                <div className="el-mono" style={{ fontSize: 12, color: "var(--ink3)", marginTop: 4 }}>{m.line}{m.extra ? ` · ${m.extra}` : ""}</div>
+              </div>
+              {h.status === "needs_review" ? <button className="el-btn el-p" onClick={() => go("review", h.id)}>Review</button>
+                : h.status === "feedback_sent" ? <button className="el-btn el-g" onClick={() => go("results", h.id)}>Results</button>
+                  : <button className="el-btn el-g" onClick={() => go("student", h.student)}>Open</button>}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function Placeholder({ name, go }) {
+  const copy = {
+    materials: { t: "Materials", d: "Здесь лежат ваши материалы: списки выражений, промпты для Speaking, шаблоны Writing. В Concept B материал попадает в домашку в один клик.", b: "13 выражений · 8 speaking-промптов · 5 writing-заданий" },
+    settings: { t: "Settings", d: "Расписание, напоминания ученикам, шаблоны обратной связи. В прототипе не подключено.", b: "Прототип · без backend" },
+  }[name] || { t: name, d: "", b: "" };
+  return (
+    <>
+      <h1 className="el-serif" style={{ fontSize: 32, margin: "0 0 8px" }}>{copy.t}</h1>
+      <p style={{ color: "var(--ink2)", maxWidth: 520 }}>{copy.d}</p>
+      <div className="el-card" style={{ padding: 20, marginTop: 16, borderStyle: "dashed", color: "var(--ink3)" }} >{copy.b}</div>
+      <button className="el-btn el-g" style={{ marginTop: 18 }} onClick={() => go("home")}><ArrowLeft size={15} /> На главную</button>
+    </>
+  );
+}
+
+/* ------------------------- Teacher: create homework ------------------------- */
+
+function CreateHomework({ studentId, setHw, go, notify }) {
+  const s = STUDENTS.find((x) => x.id === studentId) || STUDENTS[0];
+  const narrow = useNarrow(1000);
+  const [goals, setGoals] = useState([GOALS[0], GOALS[1], GOALS[2]]);
+  const [customGoal, setCustomGoal] = useState("");
+  const [blocks, setBlocks] = useState(LIBRARY.map((b) => ({ ...b, key: b.id })));
+  const [editing, setEditing] = useState(null);
+  const [dueDay, se
