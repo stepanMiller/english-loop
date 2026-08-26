@@ -25,6 +25,8 @@ jobs:
         run: python3 scripts/patch_demo.py
       - name: Add tutor instructions to generation
         run: python3 scripts/patch_tutor_instructions.py
+      - name: Add homework preview refinement
+        run: python3 scripts/patch_preview_refinement.py
       - uses: actions/setup-node@v4
         with:
           node-version: 22
