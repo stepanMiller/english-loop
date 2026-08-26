@@ -1,0 +1,260 @@
+<div className="el-eyebrow">Grammar in Context</div>
+      <h2 className="el-serif" style={{ fontSize: 27, margin: "10px 0 18px" }}>Grammar completed</h2>
+      <div className="el-card" style={{ padding: 20 }}>
+        <div className="el-serif el-mono" style={{ fontSize: 30 }}>{correct} / {GRAMMAR_ITEMS.length}</div>
+        <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 4 }}>верных с первой попытки</div>
+        {missed.length > 0 && (
+          <div style={{ marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+            <div className="el-eyebrow" style={{ marginBottom: 8 }}>Вернём на занятие</div>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              {missed.map((m) => <span key={m} className="el-pill" style={{ background: "var(--amber-s)", color: "var(--amber)" }}>{m}</span>)}
+            </div>
+          </div>
+        )}
+      </div>
+      <button className="el-btn el-p" style={{ width: "100%", marginTop: 22, padding: 14, fontSize: 15 }}
+        onClick={() => onDone("grammar", { correct, total: GRAMMAR_ITEMS.length, missed })}>Continue</button>
+    </div>
+  );
+
+  return (
+    <>
+      <ExerciseHeader title="Grammar in Context" onExit={onExit} step={i + 1} of={GRAMMAR_ITEMS.length} />
+      <div className="el-eyebrow">{it.tag}</div>
+      <p className="el-serif" style={{ fontSize: 21, lineHeight: 1.4, margin: "12px 0 20px" }}>{it.s}</p>
+      <div style={{ display: "grid", gap: 9 }}>
+        {it.o.map((o, j) => {
+          const isRight = j === it.a, chosen = pick === j;
+          const show = pick !== null;
+          return (
+            <button key={o} className="el-card" onClick={() => choose(j)} style={{
+              padding: "13px 16px", textAlign: "left", fontSize: 15.5, display: "flex", justifyContent: "space-between", alignItems: "center",
+              background: show && isRight ? "var(--soft)" : show && chosen ? "var(--amber-s)" : "#fff",
+              borderColor: show && isRight ? "#CFE0D9" : show && chosen ? "#EDDCC0" : "var(--line)",
+            }}>
+              {o}
+              {show && isRight && <Check size={16} strokeWidth={2.4} color="var(--accent)" />}
+            </button>
+          );
+        })}
+      </div>
+      {pick !== null && (
+        <div className="el-fadein" style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 14, color: "var(--ink2)", lineHeight: 1.55 }}>
+            <b style={{ color: pick === it.a ? "var(--accent)" : "var(--amber)", fontWeight: 600 }}>
+              {pick === it.a ? "Exactly right. " : "Almost there. "}
+            </b>{it.why}
+          </div>
+          <button className="el-btn el-p" style={{ width: "100%", marginTop: 16, padding: 13 }} onClick={next}>
+            {i + 1 >= GRAMMAR_ITEMS.length ? "Готово" : "Next"}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ------------------------- Student: feedback / progress / practice ------------------------- */
+
+function StudentFeedback({ h, setRun, jumpToTeacher }) {
+  if (!h || !h.feedback) return (
+    <div style={{ paddingTop: 50, textAlign: "center" }}>
+      <MessageSquare size={26} color="var(--ink3)" />
+      <div className="el-serif" style={{ fontSize: 22, margin: "14px 0 8px" }}>Пока пусто</div>
+      <p style={{ color: "var(--ink2)", fontSize: 14, lineHeight: 1.6 }}>
+        Обратная связь появится, когда преподаватель проверит работу.
+      </p>
+      <button className="el-btn el-g" style={{ marginTop: 10 }} onClick={jumpToTeacher}>Проверить в режиме преподавателя</button>
+    </div>
+  );
+  const f = h.feedback;
+  const states = ["Needs practice", "Getting stronger", "Completed"];
+  return (
+    <>
+      <div className="el-eyebrow" style={{ marginTop: 10 }}>Feedback from your teacher</div>
+      <h1 className="el-serif" style={{ fontSize: 27, margin: "10px 0 18px" }}>{h.title}</h1>
+
+      <div className="el-card" style={{ padding: 18 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <Avatar name="Мария" size={32} />
+          <div style={{ fontSize: 13.5, fontWeight: 550 }}>Мария К.</div>
+          {f.voice && <span className="el-pill" style={{ marginLeft: "auto", background: "var(--soft)", color: "var(--accent)" }}>
+            <Play size={11} fill="currentColor" /> <span className="el-mono">{f.voice}</span></span>}
+        </div>
+        <p className="el-serif" style={{ fontSize: 16.5, lineHeight: 1.6, margin: "14px 0 0" }}>{f.text}</p>
+      </div>
+
+      <div className="el-card" style={{ padding: 18, marginTop: 12 }}>
+        <div className="el-eyebrow">Your goals</div>
+        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+          {h.goals.map((g, i) => {
+            const st = f.goalStates[i];
+            return (
+              <div key={g} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                {st === 2 ? <CheckCircle2 size={15} color="var(--accent)" style={{ marginTop: 3 }} />
+                  : st === 1 ? <TrendingUp size={15} color="var(--accent)" style={{ marginTop: 3 }} />
+                    : <Circle size={13} color="var(--amber)" style={{ marginTop: 4 }} />}
+                <div>
+                  <div style={{ fontSize: 14.5 }}>{g}</div>
+                  <div style={{ fontSize: 12.5, color: st === 0 ? "var(--amber)" : "var(--accent)", marginTop: 2 }}>{states[st]}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {(f.notes || []).length > 0 && (
+        <div className="el-card" style={{ padding: 18, marginTop: 12 }}>
+          <div className="el-eyebrow">Two sentences to review</div>
+          <div style={{ display: "grid", gap: 14, marginTop: 12 }}>
+            {f.notes.map((id) => {
+              const p = ESSAY_PARTS.find((x) => x.id === id);
+              return (
+                <div key={id}>
+                  <div className="el-serif" style={{ fontSize: 15.5, color: "var(--ink2)", lineHeight: 1.5 }}>«{p.t}»</div>
+                  <div style={{ fontSize: 13.5, marginTop: 6, color: "var(--amber)" }}>{p.note}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(f.marks || []).length > 0 && (
+        <div className="el-card" style={{ padding: 18, marginTop: 12 }}>
+          <div className="el-eyebrow">Пометки в записи</div>
+          {f.marks.map((m, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, marginTop: 11, fontSize: 13.5 }}>
+              <span className="el-mono" style={{ color: "var(--ink3)" }}>{mmss(Math.round(m.at * 124))}</span>{m.text}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button className="el-btn el-p" style={{ width: "100%", marginTop: 20, padding: 14, fontSize: 15 }}
+        onClick={() => setRun(LIBRARY[1])}>Practise again</button>
+    </>
+  );
+}
+
+function StudentProgress() {
+  const Group = ({ title, items, tone }) => (
+    <div className="el-card" style={{ padding: 18, marginTop: 12 }}>
+      <div className="el-eyebrow" style={{ color: tone }}>{title}</div>
+      <div style={{ display: "grid", gap: 13, marginTop: 13 }}>
+        {items.map((x) => (
+          <div key={x.t}>
+            <div style={{ fontSize: 15, display: "flex", gap: 9, alignItems: "center" }}>
+              <span style={{ width: 6, height: 6, borderRadius: 99, background: tone }} />{x.t}
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 3, marginLeft: 15 }}>{x.note}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <>
+      <div className="el-eyebrow" style={{ marginTop: 10 }}>Progress</div>
+      <h1 className="el-serif" style={{ fontSize: 29, margin: "10px 0 6px" }}>Your English</h1>
+      <p style={{ color: "var(--ink2)", fontSize: 14, marginTop: 0 }}>
+        Без очков и уровней. Только то, что уже работает само, и то, что ещё требует практики.
+      </p>
+      <Group title="Automatic" items={PROGRESS.automatic} tone="var(--accent)" />
+      <Group title="Getting stronger" items={PROGRESS.stronger} tone="var(--blue)" />
+      <Group title="Needs practice" items={PROGRESS.practice} tone="var(--amber)" />
+      <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 16, lineHeight: 1.6 }}>
+        Каждая строка меняется только после выполненных заданий — прогресс связан с практикой, а не с временем в приложении.
+      </div>
+    </>
+  );
+}
+
+function StudentPractice({ hw, setRun, progress, active }) {
+  const mine = Object.values(hw).filter((h) => h.student === "ahav");
+  return (
+    <>
+      <div className="el-eyebrow" style={{ marginTop: 10 }}>Practice</div>
+      <h1 className="el-serif" style={{ fontSize: 29, margin: "10px 0 16px" }}>Ваши задания</h1>
+      {mine.map((h) => (
+        <div key={h.id} className="el-card" style={{ padding: 16, marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <span style={{ fontWeight: 550, fontSize: 15 }}>{h.title}</span>
+            <Pill status={h.status} />
+          </div>
+          <div className="el-mono" style={{ fontSize: 12, color: "var(--ink3)", marginTop: 5 }}>
+            Due {h.due} · {h.tasks.length} tasks
+          </div>
+        </div>
+      ))}
+      <div className="el-eyebrow" style={{ marginTop: 22, marginBottom: 10 }}>Потренироваться дополнительно</div>
+      <div style={{ display: "grid", gap: 9 }}>
+        {LIBRARY.map((l) => (
+          <button key={l.id} className="el-card el-lift" onClick={() => setRun(l)}
+            style={{ padding: 14, display: "flex", gap: 12, alignItems: "center", textAlign: "left" }}>
+            <TaskIcon name={l.icon} size={16} />
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 14.5, fontWeight: 550 }}>{l.title}</span>
+              <span style={{ display: "block", fontSize: 12.5, color: "var(--ink3)" }}>{l.minutes} min</span>
+            </span>
+            <ChevronRight size={16} color="var(--ink3)" />
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ================================================================== *
+ *  ROOT
+ * ================================================================== */
+
+export default function EnglishLoop() {
+  const [role, setRole] = useState("teacher");
+  const [hw, setHw] = useState(loadHomework);
+  const [toast, setToast] = useState(null);
+  const notify = (m) => { setToast(m); setTimeout(() => setToast(null), 2400); };
+
+  useEffect(() => {
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(hw)); } catch { /* private mode can limit storage */ }
+  }, [hw]);
+
+  return (
+    <div className="el-root">
+      <style>{CSS}</style>
+      <div style={{
+        position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", gap: 12,
+        padding: "calc(9px + env(safe-area-inset-top)) 16px 9px", borderBottom: "1px solid var(--line)", background: "rgba(250,249,246,.92)", backdropFilter: "blur(10px)",
+      }}>
+        <span className="el-mono" style={{ fontSize: 11, letterSpacing: ".1em", color: "var(--ink3)", textTransform: "uppercase" }}>
+          English Loop · Prototype
+        </span>
+        <div style={{ marginLeft: "auto", display: "flex", background: "var(--sunk)", borderRadius: 10, padding: 3 }}>
+          {[{ k: "teacher", l: "Teacher" }, { k: "student", l: "Student" }].map((r) => (
+            <button key={r.k} onClick={() => setRole(r.k)} style={{
+              padding: "6px 14px", borderRadius: 8, fontSize: 13, fontWeight: 550,
+              background: role === r.k ? "#fff" : "transparent",
+              color: role === r.k ? "var(--ink)" : "var(--ink3)",
+              boxShadow: role === r.k ? "0 1px 3px rgba(27,26,23,.12)" : "none", transition: "all .16s",
+            }}>{r.l}</button>
+          ))}
+        </div>
+        <button className="el-btn el-q" title="Сбросить демо" onClick={() => {
+          window.localStorage.removeItem(STORAGE_KEY);
+          clearAudioBlobs();
+          setHw(initialHomework());
+          notify("Демо сброшено");
+        }}>
+          <RotateCcw size={15} />
+        </button>
+      </div>
+
+      {role === "teacher"
+        ? <TeacherApp hw={hw} setHw={setHw} notify={notify} jumpToStudent={() => setRole("student")} />
+        : <StudentApp hw={hw} setHw={setHw} notify={notify} jumpToTeacher={() => setRole("teacher")} />}
+
+      <Toast show={!!toast}>{toast}</Toast>
+    </div>
+  );
+}
