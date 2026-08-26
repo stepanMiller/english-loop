@@ -27,6 +27,8 @@ jobs:
         run: python3 scripts/patch_tutor_instructions.py
       - name: Add homework preview refinement
         run: python3 scripts/patch_preview_refinement.py
+      - name: Fix and validate preview runtime state
+        run: python3 scripts/patch_preview_fix.py
       - uses: actions/setup-node@v4
         with:
           node-version: 22
