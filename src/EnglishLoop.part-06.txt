@@ -1,0 +1,264 @@
+отренируем короткие связки." }]);
+  const [notes, setNotes] = useState([]);
+  const [goalStates, setGoalStates] = useState(h.goals.map((_, i) => (i === 1 ? 2 : 1)));
+  const [text, setText] = useState(
+    "Good progress. Your speech was more continuous, and “eventually” appeared naturally. Next time, try to use “look into” and “carry out” without looking at the list."
+  );
+  const [voice, setVoice] = useState(null);
+  const [rec, setRec] = useState(false);
+  const [recSec, setRecSec] = useState(0);
+  useEffect(() => { if (!rec) return; const t = setInterval(() => setRecSec((x) => x + 1), 1000); return () => clearInterval(t); }, [rec]);
+
+  const send = () => {
+    setHw((db) => ({ ...db, [hwId]: { ...db[hwId], status: "feedback_sent", feedback: { text, voice, goalStates, marks, notes } } }));
+    notify("Feedback sent");
+    go("results", hwId);
+  };
+
+  const Right = (
+    <div style={{ display: "grid", gap: 16, position: narrow ? "static" : "sticky", top: 34 }}>
+      <div className="el-card" style={{ padding: 18 }}>
+        <div className="el-eyebrow">Goal review</div>
+        <div style={{ display: "grid", gap: 14, marginTop: 14 }}>
+          {h.goals.map((g, i) => (
+            <div key={g}>
+              <div style={{ fontSize: 13.5, marginBottom: 7 }}>{g}</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {["Needs practice", "Getting stronger", "Completed"].map((l, j) => (
+                  <button key={l} className="el-btn" onClick={() => setGoalStates((x) => x.map((v, k) => k === i ? j : v))}
+                    style={{
+                      flex: 1, padding: "6px 4px", fontSize: 11.5, borderRadius: 9,
+                      background: goalStates[i] === j ? (j === 0 ? "var(--amber-s)" : "var(--soft)") : "var(--sunk)",
+                      color: goalStates[i] === j ? (j === 0 ? "var(--amber)" : "var(--accent)") : "var(--ink3)",
+                      fontWeight: goalStates[i] === j ? 600 : 500,
+                    }}>{l}</button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="el-card" style={{ padding: 18 }}>
+        <div className="el-eyebrow">Teacher feedback</div>
+        <textarea className="el-ta" rows={6} style={{ marginTop: 10 }} value={text} onChange={(e) => setText(e.target.value)} />
+        <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {!voice && !rec && <button className="el-btn el-g" onClick={() => { setRecSec(0); setRec(true); }}><Mic size={14} /> Голосовой комментарий</button>}
+          {rec && <button className="el-btn el-g el-rec" style={{ borderColor: "var(--amber)", color: "var(--amber)" }}
+            onClick={() => { setRec(false); setVoice(mmss(recSec || 1)); }}><Square size={12} fill="currentColor" /> Стоп · <span className="el-mono">{mmss(recSec)}</span></button>}
+          {voice && <>
+            <span className="el-pill" style={{ background: "var(--soft)", color: "var(--accent)" }}><Volume2 size={13} /> <span className="el-mono">{voice}</span></span>
+            <button className="el-btn el-q" onClick={() => setVoice(null)}><Trash2 size={14} /></button>
+          </>}
+        </div>
+        {(notes.length > 0 || marks.length > 0) && (
+          <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 12 }}>
+            К обратной связи приложено: {marks.length} пометок в записи, {notes.length} в тексте.
+          </div>
+        )}
+        <button className="el-btn el-p" style={{ width: "100%", marginTop: 14, padding: "12px" }} onClick={send}>
+          <Send size={15} /> Send feedback
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <button className="el-btn el-q" style={{ marginLeft: -10, marginBottom: 10 }} onClick={() => go("home")}><ArrowLeft size={15} /> Homework overview</button>
+      <LoopRail stage="review" />
+      <div style={{ display: "flex", gap: 14, alignItems: "center", margin: "14px 0 4px" }}>
+        <Avatar name={s.name} size={44} />
+        <h1 className="el-serif" style={{ fontSize: 32, margin: 0 }}>Review {s.name}’s homework</h1>
+      </div>
+      <p style={{ color: "var(--ink2)", marginTop: 0 }}>
+        {h.title} · выполнено {h.submittedLabel || "только что"} · всего практики <span className="el-mono">{h.totalTime || 34} мин</span>
+      </p>
+
+      <div style={{ display: "flex", gap: 6, margin: "22px 0 20px", flexWrap: "wrap" }}>
+        {tabs.map((t) => (
+          <button key={t.k} className="el-chip" onClick={() => setTab(t.k)}
+            style={tab === t.k ? { background: "var(--ink)", borderColor: "var(--ink)", color: "#fff" } : undefined}>
+            <TaskIcon name={t.i} size={14} /> {t.l}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 330px", gap: 26, alignItems: "start" }}>
+        <div key={tab} className="el-fade">
+          {tab === "speaking" && <SpeakingReview sp={sub.speaking} marks={marks} setMarks={setMarks} />}
+          {tab === "writing" && <WritingReview wr={sub.writing} notes={notes} setNotes={setNotes} />}
+          {tab === "recall" && (
+            <div className="el-card" style={{ padding: 20 }}>
+              <div className="el-eyebrow">Vocabulary Recall</div>
+              <div style={{ display: "flex", gap: 26, marginTop: 14 }}>
+                <div><div className="el-serif el-mono" style={{ fontSize: 28, color: "var(--accent)" }}>{sub.recall.confident}</div><div style={{ fontSize: 12.5, color: "var(--ink3)" }}>уверенно</div></div>
+                <div><div className="el-serif el-mono" style={{ fontSize: 28, color: "var(--amber)" }}>{sub.recall.retry}</div><div style={{ fontSize: 12.5, color: "var(--ink3)" }}>со второй попытки</div></div>
+              </div>
+              <div style={{ borderTop: "1px solid var(--line)", marginTop: 16, paddingTop: 14 }}>
+                <div className="el-eyebrow" style={{ marginBottom: 8 }}>Вернуть в активный recall</div>
+                <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                  {(sub.recall.retryItems || []).map((t) => <span key={t} className="el-pill" style={{ background: "var(--amber-s)", color: "var(--amber)" }}>{t}</span>)}
+                </div>
+              </div>
+            </div>
+          )}
+          {tab === "grammar" && (
+            <div className="el-card" style={{ padding: 20 }}>
+              <div className="el-eyebrow">Grammar in Context</div>
+              <div className="el-serif el-mono" style={{ fontSize: 28, marginTop: 12 }}>{sub.grammar.correct} / {sub.grammar.total}</div>
+              <div style={{ fontSize: 13.5, color: "var(--ink2)", marginTop: 10 }}>
+                Слабое место: {(sub.grammar.missed || []).join(", ") || "нет"}. Стоит вернуть в следующее занятие короткой разминкой.
+              </div>
+            </div>
+          )}
+        </div>
+        {Right}
+      </div>
+    </>
+  );
+}
+
+/* ------------------------- Teacher: results ------------------------- */
+
+function ResultsScreen({ hwId, hw, go, notify }) {
+  const h = hw[hwId];
+  const s = STUDENTS.find((x) => x.id === h.student);
+  const [added, setAdded] = useState(false);
+  const sub = h.submission || {};
+  const doneCount = Object.keys(sub).length;
+  const stronger = ["eventually", "speaking continuity", "Third Conditional"];
+  const practice = ["look into", "carry out", "articles", "spontaneous sentence structure"];
+  const plan = [
+    "Начать с двухминутного спонтанного Speaking",
+    "Вернуть «look into» и «carry out» в активный recall",
+    "Разобрать две ошибки из Writing",
+    "Не повторять выражения, которые уже уверенные",
+  ];
+  return (
+    <>
+      <button className="el-btn el-q" style={{ marginLeft: -10, marginBottom: 10 }} onClick={() => go("home")}><ArrowLeft size={15} /> Homework overview</button>
+      <LoopRail stage={added ? "lesson" : "review"} />
+      <h1 className="el-serif" style={{ fontSize: 34, margin: "14px 0 6px" }}>{s.name}’s homework</h1>
+      <p style={{ color: "var(--ink2)", marginTop: 0 }}>
+        Completed: <span className="el-mono">{doneCount} of {h.tasks.length}</span> · Total practice time: <span className="el-mono">{h.totalTime || 34} min</span>
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14, margin: "24px 0" }}>
+        <div className="el-card" style={{ padding: 20 }}>
+          <div className="el-eyebrow" style={{ color: "var(--accent)" }}>Getting stronger</div>
+          <div style={{ display: "grid", gap: 9, marginTop: 14 }}>
+            {stronger.map((t) => <div key={t} style={{ display: "flex", gap: 9, alignItems: "center", fontSize: 14.5 }}>
+              <CheckCircle2 size={15} color="var(--accent)" /> {t}</div>)}
+          </div>
+        </div>
+        <div className="el-card" style={{ padding: 20 }}>
+          <div className="el-eyebrow" style={{ color: "var(--amber)" }}>Needs practice</div>
+          <div style={{ display: "grid", gap: 9, marginTop: 14 }}>
+            {practice.map((t) => <div key={t} style={{ display: "flex", gap: 9, alignItems: "center", fontSize: 14.5 }}>
+              <Circle size={13} color="var(--amber)" /> {t}</div>)}
+          </div>
+        </div>
+      </div>
+
+      <div className="el-card" style={{ padding: 22, borderColor: added ? "#CFE0D9" : "var(--line)", background: added ? "var(--soft)" : "#fff" }}>
+        <div className="el-eyebrow">Recommendation for {s.nextLesson.split(",")[0]}</div>
+        <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+          {plan.map((p, i) => (
+            <div key={p} style={{ display: "flex", gap: 12, fontSize: 15 }}>
+              <span className="el-mono" style={{ color: "var(--ink3)", fontSize: 12.5, paddingTop: 3 }}>{String(i + 1).padStart(2, "0")}</span>
+              <span>{p}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 14 }}>Черновик рекомендации на mock-данных, без AI-бэкенда.</div>
+        {!added ? (
+          <button className="el-btn el-p" style={{ marginTop: 18, padding: "12px 20px" }}
+            onClick={() => { setAdded(true); notify("Added to Thursday’s lesson"); }}>
+            Add results to next lesson
+          </button>
+        ) : (
+          <div className="el-pop" style={{ marginTop: 18, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="el-pill" style={{ background: "#fff", color: "var(--accent)" }}><Check size={13} strokeWidth={2.6} /> В плане занятия {s.nextLesson}</span>
+            <button className="el-btn el-g" onClick={() => go("create", s.id)}>Собрать следующую практику</button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ================================================================== *
+ *  STUDENT — mobile-first practice
+ * ================================================================== */
+
+function StudentApp({ hw, setHw, notify, jumpToTeacher }) {
+  const narrow = useNarrow(940);
+  const [tab, setTab] = useState("today");
+  const [run, setRun] = useState(null);
+  const [progressByHomework, setProgressByHomework] = useState({});
+
+  const candidates = Object.values(hw)
+    .filter((h) => h.student === "ahav" && ["assigned", "in_progress", "submitted", "needs_review"].includes(h.status))
+    .sort((a, b) => {
+      const priority = { assigned: 4, in_progress: 3, submitted: 2, needs_review: 1 };
+      const statusDiff = (priority[b.status] || 0) - (priority[a.status] || 0);
+      return statusDiff || (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  const active = candidates[0];
+  const withFb = Object.values(hw).find((h) => h.student === "ahav" && h.feedback);
+  const savedProgress = active ? {
+    vocab: active.submission?.recall,
+    speaking: active.submission?.speaking,
+    writing: active.submission?.writing,
+    grammar: active.submission?.grammar,
+  } : {};
+  const progress = active ? { ...savedProgress, ...(progressByHomework[active.id] || {}) } : {};
+
+  const finish = (type, data) => {
+    if (!active) return;
+    setProgressByHomework((all) => ({
+      ...all,
+      [active.id]: { ...(all[active.id] || {}), [type]: data },
+    }));
+    setRun(null);
+    const submissionKey = type === "vocab" ? "recall" : type;
+    setHw((db) => {
+      const current = db[active.id];
+      const status = type === "speaking" ? "needs_review"
+        : current.status === "assigned" ? "in_progress" : current.status;
+      return {
+        ...db,
+        [active.id]: {
+          ...current,
+          status,
+          submission: { ...(current.submission || {}), [submissionKey]: data },
+          ...(type === "speaking" ? { submittedLabel: "только что" } : {}),
+        },
+      };
+    });
+  };
+
+  const submitAll = () => {
+    if (!active) return;
+    const sub = { ...(active.submission || {}) };
+    if (progress.vocab) sub.recall = progress.vocab;
+    if (progress.speaking) sub.speaking = progress.speaking;
+    if (progress.writing) sub.writing = progress.writing;
+    if (progress.grammar) sub.grammar = progress.grammar;
+    const mins = active.tasks.reduce((a, b) => a + b.minutes, 0);
+    setHw((db) => ({ ...db, [active.id]: { ...db[active.id], status: "needs_review", submission: sub, submittedLabel: "только что", totalTime: mins } }));
+    notify("Homework submitted");
+    setTab("today");
+  };
+
+  let screen;
+  if (run) {
+    const props = { task: run, onExit: () => setRun(null), onDone: finish, notify };
+    screen = run.type === "vocab" ? <RecallRunner {...props} />
+      : run.type === "speaking" ? <SpeakingRunner {...props} />
+        : run.type === "writing" ? <WritingRunner {...props} />
+          : <GrammarRunner {...props} />;
+  } else if (tab === "today") {
+    screen = <StudentToday hw={active} progress={progress} setRun={setRun} submitAll={submitAll} feedbackHw={withFb} openFeedback={() => setTab("feedback")} />;
+  } else if (tab 
