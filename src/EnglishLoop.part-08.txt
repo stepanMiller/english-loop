@@ -1,0 +1,304 @@
+or: state === "ok" ? "var(--accent)" : "var(--amber)" }}>
+            {state === "ok" ? "Exactly right" : "Almost there"}
+          </div>
+          <p className="el-serif" style={{ fontSize: 17, lineHeight: 1.5, margin: "10px 0 0" }}>{it.en}</p>
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <button className="el-btn el-p" style={{ flex: 1 }} onClick={next}>Got it</button>
+            {state === "almost" && (
+              <button className="el-btn el-g" onClick={() => { setState(null); setVal(""); }}>Try again</button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ------------------------- Student: Speaking ------------------------- */
+
+function SpeakingRunner({ task, onExit, onDone }) {
+  const [sec, setSec] = useState(0);
+  const [phase, setPhase] = useState("idle"); // idle | requesting | recording | processing | ready
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [playing, setPlaying] = useState(false);
+  const [error, setError] = useState("");
+  const recorderRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunksRef = useRef([]);
+  const blobRef = useRef(null);
+  const startRef = useRef(0);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (phase !== "recording") return;
+    const t = setInterval(() => setSec(Math.max(0, Math.round((Date.now() - startRef.current) / 1000))), 250);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  useEffect(() => () => {
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
+
+  const start = async () => {
+    setError("");
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setError("This browser cannot record audio. Open the demo in Safari 14.5 or later over HTTPS.");
+      return;
+    }
+    setPhase("requesting");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const mimeType = speakingMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      chunksRef.current = [];
+      streamRef.current = stream;
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => { if (event.data?.size) chunksRef.current.push(event.data); };
+      recorder.onerror = () => {
+        setError("The recording stopped unexpectedly. Please try again.");
+        setPhase("idle");
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.onstop = () => {
+        const seconds = Math.max(1, Math.round((Date.now() - startRef.current) / 1000));
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || "audio/mp4" });
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        if (!blob.size) {
+          setError("Safari did not return an audio file. Please record again.");
+          setPhase("idle");
+          return;
+        }
+        if (audioUrl) URL.revokeObjectURL(audioUrl);
+        blobRef.current = blob;
+        setSec(seconds);
+        setAudioUrl(URL.createObjectURL(blob));
+        setPhase("ready");
+      };
+      startRef.current = Date.now();
+      setSec(0);
+      recorder.start();
+      setPhase("recording");
+    } catch (err) {
+      const denied = err?.name === "NotAllowedError" || err?.name === "SecurityError";
+      setError(denied
+        ? "Microphone access was denied. Allow microphone access for this site in Safari settings, then tap Record again."
+        : "The microphone is unavailable. Check that no other app is using it and try again.");
+      setPhase("idle");
+    }
+  };
+
+  const stop = () => {
+    if (recorderRef.current?.state !== "recording") return;
+    setPhase("processing");
+    recorderRef.current.stop();
+  };
+
+  const reRecord = () => {
+    audioRef.current?.pause();
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
+    setPlaying(false);
+    setSec(0);
+    setError("");
+    blobRef.current = null;
+    setPhase("idle");
+  };
+
+  const togglePlay = async () => {
+    if (!audioRef.current) return;
+    if (audioRef.current.paused) {
+      await audioRef.current.play();
+      setPlaying(true);
+    } else {
+      audioRef.current.pause();
+      setPlaying(false);
+    }
+  };
+
+  const submit = async () => {
+    if (!blobRef.current) return;
+    const audioKey = `speaking-${Date.now()}`;
+    try {
+      await saveAudioBlob(audioKey, blobRef.current);
+    } catch {
+      setError("The recording could not be saved locally on this device. Keep this tab open and try recording again.");
+      return;
+    }
+    onDone("speaking", {
+      duration: mmss(sec), seconds: sec, audioKey,
+      mimeType: blobRef.current.type, recordedAt: Date.now(), used: [],
+    });
+  };
+
+  return (
+    <>
+      <ExerciseHeader title="Speaking" onExit={onExit} />
+      <p className="el-serif" style={{ fontSize: 22, lineHeight: 1.35, margin: "0 0 18px" }}>
+        {task.prompt || "Describe a demanding day when you had to deal with several problems."}
+      </p>
+
+      <div className="el-card" style={{ padding: 16 }}>
+        <div className="el-eyebrow">You can talk about</div>
+        <div style={{ display: "grid", gap: 7, marginTop: 10, fontSize: 14, color: "var(--ink2)" }}>
+          {["what happened", "what had been planned in advance", "what had to be changed", "how you dealt with the problems", "what eventually happened"].map((x) => (
+            <div key={x} style={{ display: "flex", gap: 9 }}><span style={{ color: "var(--ink3)" }}>—</span>{x}</div>
+          ))}
+        </div>
+      </div>
+
+      <div className="el-card" style={{ padding: 16, marginTop: 12 }}>
+        <div className="el-eyebrow">Try to use</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
+          {SPEAK_TARGETS.map((t) => <span key={t} className="el-pill" style={{ background: "var(--sunk)", color: "var(--ink2)" }}>{t}</span>)}
+        </div>
+      </div>
+
+      <div style={{ textAlign: "center", marginTop: 34 }}>
+        {phase !== "ready" && (
+        <button onClick={phase === "recording" ? stop : start} disabled={["requesting", "processing"].includes(phase)}
+          className={phase === "recording" ? "el-rec" : ""} style={{
+            width: 96, height: 96, borderRadius: 999, background: phase === "recording" ? "var(--amber)" : "var(--accent)",
+            color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 18px 34px -18px rgba(31,94,78,.7)", transition: "background .2s", opacity: ["requesting", "processing"].includes(phase) ? .65 : 1,
+          }}>
+          {phase === "recording" ? <Square size={28} fill="#fff" /> : <Mic size={34} strokeWidth={1.8} />}
+        </button>
+        )}
+        <div className="el-mono" style={{ fontSize: 26, marginTop: 18, color: phase === "recording" ? "var(--ink)" : "var(--ink3)" }}>{mmss(sec)}</div>
+        <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 6 }}>
+          {phase === "requesting" ? "Запрашиваем доступ к микрофону…"
+            : phase === "recording" ? "Идёт запись — нажмите Stop"
+              : phase === "processing" ? "Сохраняем запись…"
+                : phase === "ready" ? "Прослушайте запись перед отправкой"
+                  : "Нажмите Record. Цель — 2 минуты."}
+        </div>
+        {error && <div className="el-card el-fadein" role="alert" style={{ padding: 13, marginTop: 14, textAlign: "left", color: "#9A4B3C", background: "#F8EAE6", borderColor: "#EBCFC8", fontSize: 13 }}>{error}</div>}
+
+        {phase === "ready" && audioUrl && (
+          <div className="el-card el-fadein" style={{ padding: 16, marginTop: 18, textAlign: "left" }}>
+            <audio ref={audioRef} src={audioUrl} preload="metadata" playsInline
+              onEnded={() => setPlaying(false)} onPause={() => setPlaying(false)} onPlay={() => setPlaying(true)} />
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <button className="el-btn el-p" onClick={togglePlay} style={{ width: 46, height: 46, borderRadius: 999, padding: 0 }}>
+                {playing ? <Pause size={17} fill="#fff" /> : <Play size={17} fill="#fff" />}
+              </button>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 560 }}>Your recording</div>
+                <div className="el-mono" style={{ color: "var(--ink3)", fontSize: 12.5, marginTop: 3 }}>{mmss(sec)}</div>
+              </div>
+            </div>
+            <button className="el-btn el-p" style={{ width: "100%", marginTop: 16, padding: 13 }} onClick={submit}>
+              <Send size={15} /> Submit to teacher
+            </button>
+            <button className="el-btn el-g" style={{ width: "100%", marginTop: 9 }} onClick={reRecord}>
+              <RotateCcw size={15} /> Re-record
+            </button>
+          </div>
+        )}
+        <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 14 }}>Microphone access is requested only after you tap Record.</div>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------- Student: Writing ------------------------- */
+
+function WritingRunner({ task, onExit, onDone, notify }) {
+  const [text, setText] = useState("");
+  const [sent, setSent] = useState(false);
+  const words = countWords(text);
+  const used = usedTargets(text, WRITE_TARGETS);
+  const ok = words >= 40;
+
+  if (sent) return (
+    <div className="el-fade" style={{ paddingTop: 30 }}>
+      <div style={{
+        width: 46, height: 46, borderRadius: 999, background: "var(--soft)", color: "var(--accent)",
+        display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18,
+      }}><Check size={22} strokeWidth={2.2} /></div>
+      <h2 className="el-serif" style={{ fontSize: 27, margin: "0 0 16px" }}>Writing submitted</h2>
+      <div className="el-card" style={{ padding: 18, display: "grid", gap: 11 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+          <span style={{ color: "var(--ink2)" }}>Слов</span><span className="el-mono">{words}</span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+          <span style={{ color: "var(--ink2)" }}>Target expressions</span><span className="el-mono">{used.length}</span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+          <span style={{ color: "var(--ink2)" }}>Статус</span><span>Waiting for teacher feedback</span></div>
+      </div>
+      <button className="el-btn el-p" style={{ width: "100%", marginTop: 22, padding: 14, fontSize: 15 }}
+        onClick={() => onDone("writing", { words, text, used })}>Continue</button>
+    </div>
+  );
+
+  return (
+    <>
+      <ExerciseHeader title="Writing" onExit={onExit} />
+      <p className="el-serif" style={{ fontSize: 21, lineHeight: 1.35, margin: "0 0 16px" }}>
+        {task.prompt || "Write about a situation when a plan had to be changed unexpectedly."}
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 16 }}>
+        {(task.reqs || LIBRARY[2].reqs).map((r) => (
+          <span key={r} className="el-pill" style={{ background: "var(--sunk)", color: "var(--ink2)" }}>{r}</span>
+        ))}
+      </div>
+
+      <textarea className="el-ta" rows={11} placeholder="Начните писать…" value={text} onChange={(e) => setText(e.target.value)}
+        style={{ fontFamily: "var(--serif)", fontSize: 16.5 }} />
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+        <span className="el-mono" style={{ fontSize: 13, color: words >= 120 && words <= 160 ? "var(--accent)" : "var(--ink3)" }}>
+          {words} / 120–160 words
+        </span>
+        <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>
+          {used.length ? `Использовано: ${used.length}` : "Target expressions: 0"}
+        </span>
+      </div>
+      {used.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+          {used.map((u) => <span key={u} className="el-pill" style={{ background: "var(--soft)", color: "var(--accent)" }}><Check size={12} strokeWidth={2.6} />{u}</span>)}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+        <button className="el-btn el-g" onClick={() => notify("Draft saved")}>Save draft</button>
+        <button className="el-btn el-p" style={{ flex: 1 }} disabled={!ok} onClick={() => setSent(true)}>Submit to teacher</button>
+      </div>
+      {!ok && (
+        <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 10, display: "flex", justifyContent: "space-between", gap: 10 }}>
+          <span>Нужно хотя бы 40 слов, чтобы отправить.</span>
+          <button className="el-btn el-q" style={{ padding: 0, fontSize: 12.5, textDecoration: "underline" }}
+            onClick={() => setText(SAMPLE_ESSAY)}>Вставить пример (демо)</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ------------------------- Student: Grammar ------------------------- */
+
+function GrammarRunner({ task, onExit, onDone }) {
+  const [i, setI] = useState(0);
+  const [pick, setPick] = useState(null);
+  const [correct, setCorrect] = useState(0);
+  const [missed, setMissed] = useState([]);
+  const [fin, setFin] = useState(false);
+  const it = GRAMMAR_ITEMS[i];
+
+  const choose = (j) => {
+    if (pick !== null) return;
+    setPick(j);
+    if (j === it.a) setCorrect((c) => c + 1);
+    else setMissed((m) => (m.includes(it.tag) ? m : [...m, it.tag]));
+  };
+  const next = () => {
+    if (i + 1 >= GRAMMAR_ITEMS.length) setFin(true);
+    else { setI(i + 1); setPick(null); }
+  };
+
+  if (fin) return (
+    <div className="el-fade" style={{ paddingTop: 30 }}>
+      
