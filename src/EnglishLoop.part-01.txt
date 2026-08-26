@@ -1,0 +1,196 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Home, Users, ClipboardList, BookOpen, Settings, Plus, ChevronRight, ArrowLeft,
+  Check, X, Mic, Square, Play, Pause, Calendar, Send, Trash2, ArrowUp, ArrowDown,
+  RotateCcw, MessageSquare, TrendingUp, PenLine, Languages, Target,
+  CheckCircle2, Circle, Pencil, Volume2, Sparkles
+} from "./icons";
+
+/* ------------------------------------------------------------------ *
+ *  ENGLISH LOOP — Concept B: Homework Practice Loop
+ *  Teacher assigns → Student practises → Teacher reviews → Next lesson.
+ *  Clickable prototype. Mock data, local state, simulated interactions.
+ * ------------------------------------------------------------------ */
+
+const CSS = `
+.el-root{--bg:#FAF9F6;--surface:#FFFFFF;--sunk:#F4F2ED;--ink:#1B1A17;--ink2:#5B584F;--ink3:#918C81;
+--line:#E9E4DA;--line2:#DAD3C6;--accent:#1F5E4E;--accent-h:#17493D;--soft:#E9F0ED;
+--amber:#8F6320;--amber-s:#F8F0E2;--blue:#3B5C88;--blue-s:#EDF1F7;
+--sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+--mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;
+font-size:15px;line-height:1.5;min-height:100vh}
+.el-root *{box-sizing:border-box}
+.el-root button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+.el-serif{font-family:var(--serif);font-weight:400;letter-spacing:-.015em;line-height:1.18}
+.el-mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.el-eyebrow{font-size:11px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3)}
+.el-card{background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.el-lift{transition:transform .2s cubic-bezier(.2,.7,.3,1),box-shadow .2s,border-color .2s}
+.el-lift:hover{border-color:var(--line2);box-shadow:0 10px 30px -18px rgba(27,26,23,.35);transform:translateY(-1px)}
+.el-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:11px;
+font-weight:530;font-size:14px;padding:10px 16px;transition:background .16s,transform .12s,border-color .16s,color .16s;white-space:nowrap}
+.el-btn:active{transform:scale(.985)}
+.el-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.el-p{background:var(--accent);color:#fff}
+.el-p:hover{background:var(--accent-h)}
+.el-p[disabled]{background:var(--line2);color:#fff;cursor:not-allowed}
+.el-g{background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+.el-g:hover{border-color:var(--line2);background:#fff}
+.el-q{color:var(--ink2);padding:8px 10px}
+.el-q:hover{color:var(--ink);background:var(--sunk)}
+.el-in,.el-ta{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+padding:11px 13px;font:inherit;color:var(--ink);outline:none;transition:border-color .15s,box-shadow .15s}
+.el-ta{resize:vertical;line-height:1.62}
+.el-in:focus,.el-ta:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,94,78,.09)}
+.el-in::placeholder,.el-ta::placeholder{color:var(--ink3)}
+.el-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:560;letter-spacing:.005em}
+.el-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 12px;font-size:13px;
+border:1px solid var(--line);background:var(--surface);color:var(--ink2);transition:all .16s}
+.el-chip:hover{border-color:var(--line2);color:var(--ink)}
+.el-chip-on{background:var(--accent);border-color:var(--accent);color:#fff}
+.el-chip-on:hover{background:var(--accent-h);color:#fff}
+.el-fade{animation:elFade .34s cubic-bezier(.2,.7,.3,1)}
+@keyframes elFade{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.el-fadein{animation:elFadeIn .3s ease}
+@keyframes elFadeIn{from{opacity:0}to{opacity:1}}
+.el-pop{animation:elPop .4s cubic-bezier(.2,1.2,.35,1)}
+@keyframes elPop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+.el-rec{animation:elRec 2s ease-out infinite}
+@keyframes elRec{0%{box-shadow:0 0 0 0 rgba(143,99,32,.30)}70%{box-shadow:0 0 0 26px rgba(143,99,32,0)}100%{box-shadow:0 0 0 0 rgba(143,99,32,0)}}
+.el-scroll{overflow-y:auto;scrollbar-width:thin}
+.el-scroll::-webkit-scrollbar{width:8px;height:8px}
+.el-scroll::-webkit-scrollbar-thumb{background:#E2DCD0;border-radius:99px;border:2px solid var(--bg)}
+.el-nav{display:flex;align-items:center;gap:10px;width:100%;padding:8px 11px;border-radius:10px;
+font-size:14px;color:var(--ink2);transition:background .15s,color .15s}
+.el-nav:hover{background:var(--sunk);color:var(--ink)}
+.el-nav-on{background:var(--sunk);color:var(--ink);font-weight:560}
+.el-phone{width:392px;border-radius:40px;border:1px solid var(--line2);background:#fff;
+box-shadow:0 50px 90px -50px rgba(27,26,23,.5),0 0 0 9px #EFEDE7;overflow:hidden}
+.el-mark{background:var(--amber-s);border-bottom:1.5px solid #DBBE8C;cursor:pointer;border-radius:3px;padding:1px 2px;transition:background .15s}
+.el-mark:hover{background:#F3E5CB}
+.el-mark-good{background:var(--soft);border-bottom:1.5px solid #A9C7BC;cursor:pointer;border-radius:3px;padding:1px 2px}
+.el-tg{background:var(--soft);border-radius:4px;padding:1px 3px;color:#194C3F;font-weight:500}
+.el-bar{height:3px;border-radius:99px;background:var(--line);overflow:hidden}
+.el-bar>span{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .5s cubic-bezier(.2,.7,.3,1)}
+@media (prefers-reduced-motion:reduce){.el-root *{animation:none!important;transition:none!important}}
+`;
+
+/* ------------------------------ mock data ------------------------------ */
+
+const EXPRESSIONS = [
+  "despite being criticized", "as soon as the report is signed", "think twice before stepping in",
+  "against the odds", "reach an agreement", "look into", "put off", "clear up all my doubts",
+  "carry out", "in advance", "step in", "eventually", "keep going towards the goal",
+];
+
+const RECALL_ITEMS = [
+  { ru: "Несмотря на критику, он продолжал двигаться к своей цели.", en: "Despite being criticized, he kept going towards his goal.", key: ["despite being criticized", "kept going"] },
+  { ru: "Как только отчёт будет подписан, мы начнём работу.", en: "As soon as the report is signed, we will start working.", key: ["as soon as the report is signed"] },
+  { ru: "Подумай дважды, прежде чем вмешиваться.", en: "Think twice before stepping in.", key: ["think twice", "stepping in"] },
+  { ru: "Я разберусь с этим до конца недели.", en: "I will look into it before the end of the week.", key: ["look into"] },
+  { ru: "Встречу пришлось отложить до понедельника.", en: "The meeting had to be put off until Monday.", key: ["put off"] },
+  { ru: "Он всё объяснил и развеял все мои сомнения.", en: "He explained everything and cleared up all my doubts.", key: ["cleared up all my doubts"] },
+  { ru: "Мы забронировали всё заранее.", en: "We booked everything in advance.", key: ["in advance"] },
+  { ru: "В итоге нам удалось прийти к соглашению.", en: "Eventually we managed to reach an agreement.", key: ["eventually", "reach an agreement"] },
+];
+
+const GRAMMAR_ITEMS = [
+  { s: "If I ___ about the delay, I would have changed the plan.", o: ["knew", "had known", "would know"], a: 1, tag: "Third Conditional", why: "Third Conditional: if + had + V3 в условии." },
+  { s: "The report ___ by the whole team before the meeting.", o: ["had checked", "was checking", "had been checked"], a: 2, tag: "Passive Voice", why: "Действие с отчётом сделали другие — нужен пассив в past perfect." },
+  { s: "___ the documents are signed, we can start.", o: ["As soon as", "Until", "Despite"], a: 0, tag: "as soon as", why: "«Как только» — as soon as + Present Simple о будущем." },
+  { s: "We didn't leave the office ___ everything was clear.", o: ["before", "until", "as soon as"], a: 1, tag: "until", why: "«Не уходили, пока не…» — until." },
+  { s: "If she had looked into the issue earlier, she ___ the problem.", o: ["would have solved", "would solve", "solved"], a: 0, tag: "Third Conditional", why: "Вторая часть Third Conditional: would have + V3." },
+];
+
+const SPEAK_TARGETS = ["eventually", "look into", "carry out", "in advance", "keep going", "despite"];
+
+const MOCK_TRANSCRIPT =
+  "Last Tuesday was a really demanding day for me. In advance I had planned to finish the report and after that to meet my colleague, but in the morning the client called and asked to change almost everything. Despite this situation I keep going and I tried to solve the problems one by one. First I rewrote the numbers, then I asked my colleague about the second part. Eventually we finished the report at eight o'clock in the evening. I was very tired, but I was satisfied because we did not lose the client.";
+
+const ESSAY_PARTS = [
+  { t: "Last month my team had planned a presentation for an important client. Everything was prepared " },
+  { t: "in advance", tag: "target" },
+  { t: ", and we were sure about the result. Two hours before the meeting the client wrote that he could join only online. " },
+  { t: "If we had known about it earlier, we would have prepared a different version of the slides.", tag: "good", id: "g1", note: "Third Conditional построено верно — ровно то, что отрабатывали на уроке." },
+  { t: " We had to change the plan very quickly. I asked my colleague to " },
+  { t: "look into", tag: "target" },
+  { t: " technical part", tag: "fix", id: "a1", note: "Пропущен артикль: “to look into the technical part”." },
+  { t: " while I was rewriting the first section. " },
+  { t: "Despite", tag: "target" },
+  { t: " the pressure, we " },
+  { t: "kept going", tag: "target" },
+  { t: " and " },
+  { t: "eventually", tag: "target" },
+  { t: " the presentation was " },
+  { t: "carried out", tag: "target" },
+  { t: " without serious problems. The client said that he liked our flexibility. " },
+  { t: "Now I always prepare a second scenario in advance, because a plan can be changed in any moment", tag: "fix", id: "a2", note: "Предлог: “at any moment”. И лучше разбить длинное предложение на два." },
+  { t: ", and it is better to be ready than to lose the client." },
+];
+
+const SAMPLE_ESSAY =
+  "Last month my team had planned a presentation for an important client. Everything was prepared in advance, and we were sure about the result. Two hours before the meeting the client wrote that he could join only online. If we had known about it earlier, we would have prepared a different version of the slides. We had to change the plan very quickly. I asked my colleague to look into technical part while I was rewriting the first section. Despite the pressure, we kept going and eventually the presentation was carried out without serious problems. The client said that he liked our flexibility. Now I always prepare a second scenario in advance, because a plan can be changed in any moment, and it is better to be ready than to lose the client.";
+
+const WRITE_TARGETS = ["in advance", "look into", "carry out", "eventually", "keep going", "despite"];
+
+const GOALS = [
+  "Use target expressions without prompts",
+  "Speak continuously for two minutes",
+  "Practise Third Conditional",
+  "Improve spontaneous speaking",
+  "Review mistakes from the previous lesson",
+];
+
+const LIBRARY = [
+  {
+    id: "vocab", type: "vocab", icon: "Languages", title: "Vocabulary Recall", minutes: 7,
+    subtitle: "Russian → English · 8 expressions",
+    why: "13 активных выражений, 4 из них не всплывали две недели",
+    settings: { direction: "Russian → English", count: 8 },
+  },
+  {
+    id: "speaking", type: "speaking", icon: "Mic", title: "Speaking", minutes: 8,
+    subtitle: "A demanding day · 2 minutes",
+    why: "На уроке речь рвалась на 40-й секунде",
+    prompt: "Describe a demanding day when you had to deal with several problems.",
+    targets: SPEAK_TARGETS,
+    target: "Speak for 2 minutes without reading a prepared text.",
+  },
+  {
+    id: "writing", type: "writing", icon: "PenLine", title: "Writing", minutes: 15,
+    subtitle: "Changed plans · 120–160 words",
+    why: "Third Conditional в письме пока не появляется сам",
+    prompt: "Write about a situation when a plan had to be changed unexpectedly.",
+    reqs: ["120–160 words", "use Third Conditional at least once", "use three target expressions", "check articles and sentence structure"],
+  },
+  {
+    id: "grammar", type: "grammar", icon: "Target", title: "Grammar in Context", minutes: 7,
+    subtitle: "Third Conditional · Passive · as soon as",
+    why: "Ошибки в Passive на прошлом занятии",
+    focus: ["Third Conditional", "Passive Voice", "as soon as / before / until"],
+    settings: { count: 5 },
+  },
+];
+
+const STUDENTS = [
+  { id: "ahav", name: "Ahav", tracks: ["General English", "IELTS"], nextLesson: "Четверг, 19:00", level: "B2", since: "ноябрь 2024" },
+  { id: "alex", name: "Alex Morozov", tracks: ["IELTS"], nextLesson: "Пятница, 10:00", level: "B2+", since: "февраль 2025" },
+  { id: "michael", name: "Michael Green", tracks: ["GMAT"], nextLesson: "Суббота, 12:00", level: "C1", since: "январь 2025" },
+  { id: "nina", name: "Nina Sokolova", tracks: ["General English", "TOEFL"], nextLesson: "Понедельник, 18:30", level: "B1+", since: "март 2025" },
+];
+
+const STATUS = {
+  assigned: { label: "Assigned", fg: "#5B584F", bg: "#F1EFE9" },
+  in_progress: { label: "In progress", fg: "#3B5C88", bg: "#EDF1F7" },
+  submitted: { label: "Submitted", fg: "#1F5E4E", bg: "#E9F0ED" },
+  needs_review: { label: "Needs review", fg: "#8F6320", bg: "#F8F0E2" },
+  feedback_sent: { label: "Feedback sent", fg: "#1F5E4E", bg: "#E9F0ED" },
+  overdue: { label: "Overdue", fg: "#9A4B3C", bg: "#F8EAE6" },
+};
+
+const initialHomework = () => ({
+  "hw-ahav-tue": {
+    id: "hw-ahav-tue", student: "ahav", title: "Tuesday practice", status: "needs_review",
+    due: "Вторник, 20:00", submittedLabel: "18 минут назад", totalTime: 34,
