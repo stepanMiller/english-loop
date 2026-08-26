@@ -1,0 +1,241 @@
+tDueDay] = useState("Среда");
+  const [dueTime, setDueTime] = useState("20:00");
+  const [voice, setVoice] = useState(null);
+  const [recording, setRecording] = useState(false);
+  const [recSec, setRecSec] = useState(0);
+
+  useEffect(() => {
+    if (!recording) return;
+    const t = setInterval(() => setRecSec((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [recording]);
+
+  const total = blocks.reduce((a, b) => a + b.minutes, 0);
+  const toggleGoal = (g) => setGoals((x) => x.includes(g) ? x.filter((i) => i !== g) : [...x, g]);
+  const move = (i, d) => setBlocks((b) => {
+    const n = [...b], j = i + d;
+    if (j < 0 || j >= n.length) return n;
+    [n[i], n[j]] = [n[j], n[i]];
+    return n;
+  });
+  const removeBlock = (k) => setBlocks((b) => b.filter((x) => x.key !== k));
+  const addBlock = (id) => {
+    const src = LIBRARY.find((l) => l.id === id);
+    setBlocks((b) => [...b, { ...src, key: src.id + "-" + Date.now() }]);
+  };
+  const patch = (k, p) => setBlocks((b) => b.map((x) => x.key === k ? { ...x, ...p } : x));
+  const missing = LIBRARY.filter((l) => !blocks.some((b) => b.type === l.type));
+
+  const assign = () => {
+    const id = "hw-" + s.id + "-" + Date.now();
+    setHw((h) => {
+      const next = { ...h };
+      const oldThu = Object.values(h).find((x) => x.student === s.id && x.status === "assigned");
+      if (oldThu) delete next[oldThu.id];
+      next[id] = {
+        id, student: s.id, title: "Practice before " + (s.nextLesson.split(",")[0]),
+        status: "assigned", due: `${dueDay}, ${dueTime}`, nextLesson: s.nextLesson.split(",")[0],
+        goals, tasks: blocks.map(({ key, ...b }) => b), voice, submission: {}, feedback: null, createdAt: Date.now(),
+      };
+      return next;
+    });
+    go("assigned", id);
+  };
+
+  const Summary = (
+    <div className="el-card" style={{ padding: 20, position: narrow ? "static" : "sticky", top: 34 }}>
+      <div className="el-eyebrow">Homework for {s.name}</div>
+      <div style={{ marginTop: 14, display: "grid", gap: 9 }}>
+        {blocks.map((b) => (
+          <div key={b.key} style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: "var(--ink2)" }}>
+            <span style={{ display: "flex", gap: 8, alignItems: "center" }}><TaskIcon name={b.icon} size={14} /> {b.title}</span>
+            <span className="el-mono">{b.minutes} min</span>
+          </div>
+        ))}
+        {!blocks.length && <div style={{ fontSize: 13, color: "var(--ink3)" }}>Добавьте хотя бы один блок.</div>}
+      </div>
+      <div style={{ borderTop: "1px solid var(--line)", margin: "16px 0 14px" }} />
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+        <span>Estimated time</span><span className="el-mono" style={{ fontWeight: 600 }}>{total} min</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginTop: 6, color: "var(--ink2)" }}>
+        <span>Due</span><span className="el-mono">{dueDay}, {dueTime}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginTop: 6, color: "var(--ink2)" }}>
+        <span>Goals</span><span className="el-mono">{goals.length}</span>
+      </div>
+      <button className="el-btn el-p" disabled={!blocks.length} onClick={assign}
+        style={{ width: "100%", marginTop: 18, padding: "13px 18px", fontSize: 15 }}>
+        Assign homework
+      </button>
+      <div style={{ fontSize: 12, color: "var(--ink3)", textAlign: "center", marginTop: 10 }}>
+        {s.name} увидит {blocks.length} {blocks.length === 1 ? "задание" : "заданий"} в приложении.
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <button className="el-btn el-q" style={{ marginLeft: -10, marginBottom: 10 }} onClick={() => go("student", s.id)}>
+        <ArrowLeft size={15} /> {s.name}
+      </button>
+      <LoopRail stage="assign" />
+      <h1 className="el-serif" style={{ fontSize: 34, margin: "14px 0 6px" }}>Create homework for {s.name}</h1>
+      <p style={{ color: "var(--ink2)", marginTop: 0, marginBottom: 26 }}>
+        Соберите практику за две минуты. Всё уже предзаполнено по прошлому занятию — правьте только то, что нужно.
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 320px", gap: 26, alignItems: "start" }}>
+        <div>
+          <section style={{ marginBottom: 30 }}>
+            <h2 style={{ fontSize: 15.5, fontWeight: 600, margin: "0 0 4px" }}>Goals for this homework</h2>
+            <p style={{ fontSize: 13, color: "var(--ink3)", margin: "0 0 12px" }}>Цели видит и ученик — они же станут пунктами проверки.</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {GOALS.map((g) => (
+                <button key={g} className={`el-chip ${goals.includes(g) ? "el-chip-on" : ""}`} onClick={() => toggleGoal(g)}>
+                  {goals.includes(g) && <Check size={13} strokeWidth={2.6} />}{g}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, maxWidth: 460 }}>
+              <input className="el-in" placeholder="Своя цель…" value={customGoal} onChange={(e) => setCustomGoal(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && customGoal.trim()) { setGoals((x) => [...x, customGoal.trim()]); setCustomGoal(""); } }} />
+              <button className="el-btn el-g" disabled={!customGoal.trim()}
+                onClick={() => { if (customGoal.trim()) { setGoals((x) => [...x, customGoal.trim()]); setCustomGoal(""); } }}>Добавить</button>
+            </div>
+          </section>
+
+          <section style={{ marginBottom: 26 }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
+              <h2 style={{ fontSize: 15.5, fontWeight: 600, margin: 0 }}>Tasks</h2>
+              <span className="el-mono" style={{ fontSize: 12.5, color: "var(--ink3)" }}>{blocks.length} блока · {total} min</span>
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              {blocks.map((b, i) => (
+                <BlockCard key={b.key} b={b} i={i} last={i === blocks.length - 1}
+                  open={editing === b.key} onToggle={() => setEditing(editing === b.key ? null : b.key)}
+                  onMove={move} onRemove={removeBlock} patch={patch} />
+              ))}
+            </div>
+            {missing.length > 0 && (
+              <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                {missing.map((m) => (
+                  <button key={m.id} className="el-chip" onClick={() => addBlock(m.id)}>
+                    <Plus size={13} /> {m.title}
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section style={{ marginBottom: 26 }}>
+            <h2 style={{ fontSize: 15.5, fontWeight: 600, margin: "0 0 12px" }}>Срок и голосовая инструкция</h2>
+            <div className="el-card" style={{ padding: 18, display: "grid", gap: 16 }}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                <Calendar size={16} color="var(--ink3)" />
+                <select className="el-in" style={{ width: 150 }} value={dueDay} onChange={(e) => setDueDay(e.target.value)}>
+                  {["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"].map((d) => <option key={d}>{d}</option>)}
+                </select>
+                <select className="el-in" style={{ width: 110 }} value={dueTime} onChange={(e) => setDueTime(e.target.value)}>
+                  {["12:00", "18:00", "20:00", "22:00"].map((d) => <option key={d}>{d}</option>)}
+                </select>
+              </div>
+              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                {!voice && !recording && (
+                  <button className="el-btn el-g" onClick={() => { setRecSec(0); setRecording(true); }}>
+                    <Mic size={15} /> Записать голосовую инструкцию
+                  </button>
+                )}
+                {recording && (
+                  <button className="el-btn el-g el-rec" style={{ borderColor: "var(--amber)", color: "var(--amber)" }}
+                    onClick={() => { setRecording(false); setVoice(mmss(recSec || 1)); }}>
+                    <Square size={13} fill="currentColor" /> Стоп · <span className="el-mono">{mmss(recSec)}</span>
+                  </button>
+                )}
+                {voice && (
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span className="el-pill" style={{ background: "var(--soft)", color: "var(--accent)" }}>
+                      <Volume2 size={13} /> Голосовая инструкция · <span className="el-mono">{voice}</span>
+                    </span>
+                    <button className="el-btn el-q" onClick={() => setVoice(null)}><Trash2 size={14} /></button>
+                  </div>
+                )}
+                <span style={{ fontSize: 12.5, color: "var(--ink3)" }}>Симуляция записи — файл не создаётся.</span>
+              </div>
+            </div>
+          </section>
+        </div>
+        {Summary}
+      </div>
+    </>
+  );
+}
+
+function BlockCard({ b, i, last, open, onToggle, onMove, onRemove, patch }) {
+  return (
+    <div className="el-card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: 16, display: "flex", gap: 13, alignItems: "flex-start" }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: 9, background: "var(--sunk)", display: "flex",
+          alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--ink2)",
+        }}><TaskIcon name={b.icon} size={15} /></div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 560, fontSize: 14.5 }}>{b.title}</div>
+          <div style={{ fontSize: 13, color: "var(--ink2)", marginTop: 2 }}>{b.prompt || b.subtitle}</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 6, display: "flex", gap: 6, alignItems: "center" }}>
+            <Sparkles size={12} /> {b.why}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <span className="el-mono" style={{ fontSize: 12.5, color: "var(--ink3)", marginRight: 6 }}>{b.minutes} min</span>
+          <button className="el-btn el-q" title="Вверх" disabled={i === 0} onClick={() => onMove(i, -1)} style={{ opacity: i === 0 ? .3 : 1 }}><ArrowUp size={15} /></button>
+          <button className="el-btn el-q" title="Вниз" disabled={last} onClick={() => onMove(i, 1)} style={{ opacity: last ? .3 : 1 }}><ArrowDown size={15} /></button>
+          <button className="el-btn el-q" title="Изменить" onClick={onToggle}><Pencil size={14} /></button>
+          <button className="el-btn el-q" title="Удалить" onClick={() => onRemove(b.key)}><Trash2 size={14} /></button>
+        </div>
+      </div>
+      {open && (
+        <div className="el-fadein" style={{ borderTop: "1px solid var(--line)", padding: 16, background: "var(--sunk)", display: "grid", gap: 14 }}>
+          {b.prompt !== undefined && (
+            <label style={{ display: "block" }}>
+              <div className="el-eyebrow" style={{ marginBottom: 6 }}>Формулировка</div>
+              <textarea className="el-ta" rows={2} value={b.prompt} onChange={(e) => patch(b.key, { prompt: e.target.value })} />
+            </label>
+          )}
+          {b.type === "vocab" && (
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <label>
+                <div className="el-eyebrow" style={{ marginBottom: 6 }}>Направление</div>
+                <select className="el-in" style={{ width: 190 }} value={b.settings.direction}
+                  onChange={(e) => patch(b.key, { settings: { ...b.settings, direction: e.target.value }, subtitle: `${e.target.value} · ${b.settings.count} expressions` })}>
+                  <option>Russian → English</option><option>English → Russian</option>
+                </select>
+              </label>
+              <label>
+                <div className="el-eyebrow" style={{ marginBottom: 6 }}>Выражений: {b.settings.count}</div>
+                <input type="range" min="4" max="13" value={b.settings.count} style={{ width: 190, accentColor: "var(--accent)" }}
+                  onChange={(e) => { const c = +e.target.value; patch(b.key, { settings: { ...b.settings, count: c }, minutes: Math.max(4, Math.round(c * 0.9)), subtitle: `${b.settings.direction} · ${c} expressions` }); }} />
+              </label>
+            </div>
+          )}
+          {b.type === "speaking" && (
+            <div>
+              <div className="el-eyebrow" style={{ marginBottom: 6 }}>Try to use</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {b.targets.map((t) => <span key={t} className="el-pill" style={{ background: "#fff", color: "var(--ink2)", border: "1px solid var(--line)" }}>{t}</span>)}
+              </div>
+            </div>
+          )}
+          {b.type === "writing" && (
+            <div>
+              <div className="el-eyebrow" style={{ marginBottom: 6 }}>Requirements</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {b.reqs.map((t) => <span key={t} className="el-pill" style={{ background: "#fff", color: "var(--ink2)", border: "1px solid var(--line)" }}>{t}</span>)}
+              </div>
+            </div>
+          )}
+          {b.type === "grammar" && (
+            <div>
+              <div className="el-eyebrow" style={{ marginBottom: 6 }}>Focus</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {b.focus.map((t) => <span key={t} className="el-pill" 
