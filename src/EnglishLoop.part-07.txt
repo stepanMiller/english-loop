@@ -1,0 +1,273 @@
+=== "practice") {
+    screen = <StudentPractice hw={hw} setRun={setRun} progress={progress} active={active} />;
+  } else if (tab === "feedback") {
+    screen = <StudentFeedback h={withFb} setRun={setRun} jumpToTeacher={jumpToTeacher} />;
+  } else {
+    screen = <StudentProgress />;
+  }
+
+  const TABS = [
+    { k: "today", l: "Today", i: Home }, { k: "practice", l: "Practice", i: ClipboardList },
+    { k: "feedback", l: "Feedback", i: MessageSquare }, { k: "progress", l: "Progress", i: TrendingUp },
+  ];
+
+  const inner = (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
+      <div className="el-mono" style={{
+        display: "flex", justifyContent: "space-between", padding: "12px 22px 6px",
+        fontSize: 12, color: "var(--ink3)", flexShrink: 0,
+      }}>
+        <span>19:42</span><span>English Loop</span>
+      </div>
+      <div className="el-scroll" key={tab + (run?.id || "")} style={{ flex: 1, minHeight: 0 }}>
+        <div className="el-fade" style={{ padding: "6px 22px 28px" }}>{screen}</div>
+      </div>
+      {!run && (
+        <nav style={{
+          display: "flex", borderTop: "1px solid var(--line)", background: "rgba(250,249,246,.95)",
+          backdropFilter: "blur(10px)", padding: "7px 6px calc(10px + env(safe-area-inset-bottom))", flexShrink: 0,
+        }}>
+          {TABS.map((t) => {
+            const on = tab === t.k;
+            const dot = t.k === "feedback" && withFb && withFb.feedback;
+            return (
+              <button key={t.k} onClick={() => setTab(t.k)} style={{
+                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                padding: "5px 0", color: on ? "var(--accent)" : "var(--ink3)", fontSize: 10.5, fontWeight: 550,
+              }}>
+                <span style={{ position: "relative" }}>
+                  <t.i size={19} strokeWidth={on ? 2.1 : 1.8} />
+                  {dot && <span style={{ position: "absolute", top: -1, right: -3, width: 7, height: 7, borderRadius: 99, background: "var(--amber)" }} />}
+                </span>
+                {t.l}
+              </button>
+            );
+          })}
+        </nav>
+      )}
+    </div>
+  );
+
+  if (narrow) return <div style={{ height: "calc(100dvh - 51px - env(safe-area-inset-top))", display: "flex", flexDirection: "column" }}>{inner}</div>;
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", gap: 46, padding: "40px 20px", flexWrap: "wrap" }}>
+      <div style={{ maxWidth: 330 }}>
+        <div className="el-eyebrow">Student practice</div>
+        <h2 className="el-serif" style={{ fontSize: 30, margin: "12px 0 12px" }}>Приложение ученика</h2>
+        <p style={{ color: "var(--ink2)", fontSize: 14.5, lineHeight: 1.65 }}>
+          Ученик не видит ни курсов, ни матрицы навыков, ни экзаменационных треков — только сегодняшнюю практику,
+          цели этой практики и ответ преподавателя.
+        </p>
+        <p style={{ color: "var(--ink3)", fontSize: 13.5, lineHeight: 1.6 }}>
+          Начните с <b style={{ color: "var(--ink2)" }}>Start practice</b>: Recall → Speaking → Writing → Grammar → Submit homework.
+          Затем вернитесь в режим преподавателя и проверьте работу.
+        </p>
+        <button className="el-btn el-g" style={{ marginTop: 6 }} onClick={jumpToTeacher}>
+          <ArrowLeft size={15} /> В режим преподавателя
+        </button>
+      </div>
+      <div className="el-phone" style={{ height: 748 }}>{inner}</div>
+    </div>
+  );
+}
+
+/* ------------------------- Student: today ------------------------- */
+
+function StudentToday({ hw, progress, setRun, submitAll, feedbackHw, openFeedback }) {
+  if (!hw) return (
+    <div style={{ paddingTop: 40, textAlign: "center" }}>
+      <div className="el-serif" style={{ fontSize: 24, marginBottom: 8 }}>Практики пока нет</div>
+      <p style={{ color: "var(--ink2)", fontSize: 14 }}>Как только преподаватель назначит задание, оно появится здесь.</p>
+    </div>
+  );
+  const total = hw.tasks.reduce((a, b) => a + b.minutes, 0);
+  const doneCount = hw.tasks.filter((t) => progress[t.type]).length;
+  const allDone = doneCount === hw.tasks.length;
+  const submitted = allDone && ["needs_review", "submitted", "feedback_sent"].includes(hw.status);
+  const speakingSent = !!hw.submission?.speaking && !submitted;
+  const nextTask = hw.tasks.find((t) => !progress[t.type]);
+
+  return (
+    <>
+      <div style={{ fontSize: 14, color: "var(--ink2)", marginTop: 10 }}>Good evening, Ahav</div>
+      <h1 className="el-serif" style={{ fontSize: 30, margin: "6px 0 10px", lineHeight: 1.15 }}>
+        {submitted ? "Practice submitted" : `Practice before ${hw.nextLesson || "Thursday"}`}
+      </h1>
+      <div className="el-mono" style={{ fontSize: 13, color: "var(--ink3)" }}>
+        {hw.tasks.length} focused tasks · ≈{total} минут
+      </div>
+
+      {feedbackHw && feedbackHw.feedback && (
+        <button className="el-card el-pop" onClick={openFeedback} style={{
+          width: "100%", textAlign: "left", padding: 16, marginTop: 18, background: "var(--soft)", borderColor: "#CFE0D9",
+        }}>
+          <div className="el-eyebrow" style={{ color: "var(--accent)" }}>Feedback from your teacher</div>
+          <div style={{ fontSize: 14, marginTop: 9, lineHeight: 1.5 }}>
+            <b style={{ fontWeight: 600 }}>Speaking.</b> Good progress — your answer was more continuous.<br />
+            <b style={{ fontWeight: 600 }}>Writing.</b> Two sentences to review.
+          </div>
+          <div className="el-btn el-p" style={{ marginTop: 13, width: "100%" }}>View feedback</div>
+        </button>
+      )}
+
+      <div className="el-card" style={{ padding: 16, marginTop: 18 }}>
+        <div className="el-eyebrow">Your goals</div>
+        <div style={{ display: "grid", gap: 8, marginTop: 11 }}>
+          {hw.goals.slice(0, 3).map((g) => (
+            <div key={g} style={{ display: "flex", gap: 9, fontSize: 14, alignItems: "flex-start" }}>
+              <Target size={14} color="var(--accent)" style={{ marginTop: 3, flexShrink: 0 }} />{g}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
+        {hw.tasks.map((t, i) => {
+          const done = !!progress[t.type];
+          return (
+            <button key={i} className="el-card el-lift" onClick={() => setRun(t)} style={{ padding: 15, display: "flex", gap: 14, alignItems: "center", textAlign: "left" }}>
+              <span className="el-mono" style={{ fontSize: 12, color: done ? "var(--accent)" : "var(--ink3)", width: 18 }}>
+                {done ? <Check size={15} strokeWidth={2.6} /> : String(i + 1).padStart(2, "0")}
+              </span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", fontWeight: 560, fontSize: 15 }}>{t.title}</span>
+                <span style={{ display: "block", fontSize: 13, color: "var(--ink2)", marginTop: 2 }}>
+                  {t.type === "speaking" ? "A demanding day" : t.type === "writing" ? "Changed plans" : t.type === "grammar" ? "Third Conditional" : `${t.settings?.count || 8} expressions`} · {t.minutes} min
+                </span>
+              </span>
+              <ChevronRight size={17} color="var(--ink3)" />
+            </button>
+          );
+        })}
+      </div>
+
+      {speakingSent && (
+        <div className="el-card el-fadein" style={{ padding: 14, marginTop: 14, background: "var(--soft)", borderColor: "#CFE0D9" }}>
+          <div style={{ fontSize: 14, fontWeight: 560, color: "var(--accent)" }}>Speaking sent to your teacher</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink2)", marginTop: 4 }}>Можно продолжить остальные задания. Запись уже доступна преподавателю.</div>
+        </div>
+      )}
+
+      {!submitted && (
+        <button className="el-btn el-p" style={{ width: "100%", marginTop: 20, padding: "15px", fontSize: 16, borderRadius: 13 }}
+          onClick={() => allDone ? submitAll() : setRun(nextTask)}>
+          {allDone ? "Submit homework" : doneCount ? "Continue practice" : "Start practice"}
+        </button>
+      )}
+      {submitted && (
+        <div className="el-card" style={{ padding: 16, marginTop: 20, textAlign: "center" }}>
+          <div style={{ fontSize: 14.5, fontWeight: 550 }}>Отправлено преподавателю</div>
+          <div style={{ fontSize: 13, color: "var(--ink2)", marginTop: 5 }}>Обратная связь появится здесь и во вкладке Feedback.</div>
+        </div>
+      )}
+
+      <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--ink3)" }}>
+        <div className="el-mono">Due {hw.due}</div>
+        {!submitted && <div style={{ marginTop: 4 }}>Teacher feedback will appear here.</div>}
+      </div>
+      {hw.voice && (
+        <div className="el-card" style={{ padding: 13, marginTop: 14, display: "flex", gap: 10, alignItems: "center" }}>
+          <Volume2 size={16} color="var(--accent)" />
+          <span style={{ fontSize: 13.5, flex: 1 }}>Голосовая инструкция преподавателя</span>
+          <span className="el-mono" style={{ fontSize: 12.5, color: "var(--ink3)" }}>{hw.voice}</span>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ExerciseHeader({ title, sub, onExit, step, of }) {
+  return (
+    <div style={{ paddingTop: 6, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: -8 }}>
+        <button className="el-btn el-q" onClick={onExit}><ArrowLeft size={17} /></button>
+        <span style={{ fontSize: 14, fontWeight: 560 }}>{title}</span>
+        {step && <span className="el-mono" style={{ marginLeft: "auto", fontSize: 12.5, color: "var(--ink3)" }}>{step} / {of}</span>}
+      </div>
+      {of && <div className="el-bar" style={{ marginTop: 12 }}><span style={{ width: `${(step / of) * 100}%` }} /></div>}
+      {sub && <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 10 }}>{sub}</div>}
+    </div>
+  );
+}
+
+/* ------------------------- Student: Recall ------------------------- */
+
+function RecallRunner({ task, onExit, onDone }) {
+  const n = Math.min(task.settings?.count || 8, RECALL_ITEMS.length);
+  const items = RECALL_ITEMS.slice(0, n);
+  const [i, setI] = useState(0);
+  const [val, setVal] = useState("");
+  const [state, setState] = useState(null); // null | 'ok' | 'almost'
+  const [conf, setConf] = useState(0);
+  const [retry, setRetry] = useState([]);
+  const [tried, setTried] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [fin, setFin] = useState(false);
+
+  const it = items[i];
+  const check = () => {
+    const ok = it.key.every((k) => norm(val).includes(norm(k)));
+    setState(ok ? "ok" : "almost");
+    if (ok && !tried) setConf((c) => c + 1);
+    if (!ok && !tried) { setRetry((r) => [...r, it.key[0]]); setTried(true); }
+  };
+  const next = () => {
+    if (i + 1 >= items.length) setFin(true);
+    else { setI(i + 1); setVal(""); setState(null); setTried(false); }
+  };
+  const speak = () => {
+    setListening(true);
+    setTimeout(() => { setListening(false); setVal(it.en.replace(/^(\w)/, (m) => m.toLowerCase()).replace(/\.$/, "")); }, 1300);
+  };
+
+  if (fin) return (
+    <div className="el-fade" style={{ paddingTop: 30 }}>
+      <div className="el-eyebrow">Vocabulary Recall</div>
+      <h2 className="el-serif" style={{ fontSize: 28, margin: "10px 0 22px" }}>Recall completed</h2>
+      <div className="el-card" style={{ padding: 20, display: "flex", gap: 26 }}>
+        <div><div className="el-serif el-mono" style={{ fontSize: 30, color: "var(--accent)" }}>{conf}</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 2 }}>recalled confidently</div></div>
+        <div><div className="el-serif el-mono" style={{ fontSize: 30, color: "var(--amber)" }}>{items.length - conf}</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 2 }}>need another attempt</div></div>
+      </div>
+      {retry.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div className="el-eyebrow" style={{ marginBottom: 9 }}>Вернём в следующую практику</div>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            {retry.map((t, k) => <span key={k} className="el-pill" style={{ background: "var(--amber-s)", color: "var(--amber)" }}>{t}</span>)}
+          </div>
+        </div>
+      )}
+      <button className="el-btn el-p" style={{ width: "100%", marginTop: 24, padding: 14, fontSize: 15 }}
+        onClick={() => onDone("vocab", { confident: conf, retry: items.length - conf, retryItems: retry })}>
+        Continue
+      </button>
+    </div>
+  );
+
+  return (
+    <>
+      <ExerciseHeader title="Vocabulary Recall" onExit={onExit} step={i + 1} of={items.length} />
+      <div className="el-eyebrow">Translate into English</div>
+      <p className="el-serif" style={{ fontSize: 23, lineHeight: 1.35, margin: "14px 0 22px" }}>«{it.ru}»</p>
+
+      <textarea className="el-ta" rows={3} placeholder="Ваш ответ…" value={val} disabled={!!state}
+        onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && val.trim()) { e.preventDefault(); check(); } }} />
+
+      {!state && (
+        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+          <button className="el-btn el-g" onClick={speak} style={listening ? { borderColor: "var(--amber)", color: "var(--amber)" } : undefined}>
+            <Mic size={15} /> {listening ? "Слушаю…" : "Speak answer"}
+          </button>
+          <button className="el-btn el-p" style={{ flex: 1 }} disabled={!val.trim()} onClick={check}>Check</button>
+        </div>
+      )}
+
+      {state && (
+        <div className="el-card el-fadein" style={{
+          padding: 18, marginTop: 16,
+          background: state === "ok" ? "var(--soft)" : "var(--amber-s)",
+          borderColor: state === "ok" ? "#CFE0D9" : "#EDDCC0",
+        }}>
+          <div style={{ fontWeight: 600, fontSize: 15, col
