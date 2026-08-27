@@ -33,6 +33,8 @@ jobs:
         run: python3 scripts/patch_recall_voice.py
       - name: Harden Speaking for iPhone Safari
         run: python3 scripts/patch_speaking_ios.py
+      - name: Add live Student-Teacher sync and varied generation
+        run: python3 scripts/patch_live_sync_and_variety.py
       - uses: actions/setup-node@v4
         with:
           node-version: 22
